@@ -3,7 +3,6 @@
 #TODO: check that the library is version 3.6
 #TODO: accept command line args
 #TODO: remove items from parent project if exists in album (optionally)
-#TODO: Export generated preview for adjusted photos
 #TODO: preserve version name if different from original file name
 #TODO: handle referenced photos
 
@@ -24,6 +23,8 @@ global VERBOSE
 VERBOSE = True
 global EXPORT_ALBUMS
 EXPORT_ALBUMS = True
+global DRY_RUN
+DRY_RUN = True
 
 global type_undefined
 type_undefined = 0
@@ -71,6 +72,22 @@ albums = {}
 # uuid (version) --> uuid(s) of originals
 global versions
 versions = {}
+#
+# uuid (version) --> version number
+global version_number
+version_number = {}
+#
+#list of uuids (versions that have adjustments)
+global adjusted_photos
+adjusted_photos = set()
+#
+#import group uuid --> path (to version info)
+global import_group_path
+import_group_path = {}
+#
+#master uuid --> import group uuid
+global import_group
+import_group = {}
 
 
 
@@ -99,10 +116,48 @@ for uuid,parent,name,folderType in cur.execute('select uuid, parentFolderUuid, n
         raise Exception("Item in RKFolder has undefined type!")
         type_of[uuid] = type_undefined
 
+#RKImportGroup
+#Date and time of each import group (used to store versions/full sized previews)
+for uuid,year,month,day,time in cur.execute('select uuid, importYear, importMonth, importDay, importTime from RKImportGroup'):
+    path = path_to_aplib / "Database" / "Versions" / year / month / day / (year + month + day + "-" + time)
+    import_group_path[uuid] = path
+
+
+#RKMaster
+#add originals to dicts and a list
+for uuid,origfname,imagePath,projectUuid,importGroupUuid in cur.execute('select uuid, originalFileName, imagePath, projectUuid, importGroupUuid from RKMaster'):
+    type_of[uuid] = type_original
+    parent_of[uuid] = projectUuid
+    name_of[uuid] = origfname
+    import_group[uuid] = importGroupUuid
+
+    if projectUuid not in children_of:
+        children_of[projectUuid] = []
+    children_of[projectUuid].append(uuid)
+
+    #TODO: if in masters folder (within library)
+    #Assume photo is managed
+    location_of[uuid] = path_to_aplib / "Masters" / imagePath
+
+    #TODO if referenced
+        #TODO: if offline
+        #TODO: if online
+
 
 #From table RKVersion
 #information about versions (uuid of corresponding originals)
-for uuid,master,raw,nonraw,adjusted in cur.execute('select uuid, masterUuid, rawMasterUuid, nonRawMasterUuid, hasAdjustments from RKVersion'):
+for uuid,name,master,raw,nonraw,adjusted,versionNum in cur.execute('select uuid, name, masterUuid, rawMasterUuid, nonRawMasterUuid, hasEnabledAdjustments, versionNumber from RKVersion'):
+    if adjusted == 1:
+        adjusted_photos.add(uuid)
+
+        #add version uuid as child of project
+        #TODO: this is partly wrong (an adjusted version might not sit with its master)
+        #(might have to handle implicit albums to do this right)
+        children_of[parent_of[master]].append(uuid)
+
+    type_of[uuid] = type_version
+    name_of[uuid] = name #TODO: preserve original file name
+    version_number[uuid] = versionNum
     master_set = {master, raw, nonraw}
     master_set.remove(None)
     if len(master_set) > 2:
@@ -135,27 +190,10 @@ for uuid,albumType,subclass,name,parent in cur.execute('select uuid, albumType, 
             #add the masters as children of the album
             for vuuid in parsed["versionUuids"]:
                 children_of[uuid] += list(versions[vuuid])
+                #if photo is adjusted, add it as a child of the album #TODO (this does not handle projects)
+                if vuuid in adjusted_photos:
+                    children_of[uuid].append(vuuid)
 
-
-
-
-#add originals to dicts and a list
-for uuid,origfname,imagePath,projectUuid in cur.execute('select uuid, originalFileName, imagePath, projectUuid from RKMaster'):
-    type_of[uuid] = type_original
-    parent_of[uuid] = projectUuid
-    name_of[uuid] = origfname
-
-    if projectUuid not in children_of:
-        children_of[projectUuid] = []
-    children_of[projectUuid].append(uuid)
-
-    #TODO: if in masters folder (within library)
-    #Assume photo is managed
-    location_of[uuid] = path_to_aplib / "Masters" / imagePath
-
-    #TODO if referenced
-        #TODO: if offline
-        #TODO: if online
 
 
 ################################################
@@ -173,8 +211,9 @@ def makeHierarchy(uuid, path):
 
     if type_of[uuid] in [type_folder, type_project, type_album]:
         try:
-            #create a directory
-            os.mkdir(path / name)
+            if DRY_RUN == False:
+                #create a directory
+                os.mkdir(path / name)
         except FileExistsError  as e:
             pass
         if uuid not in children_of:
@@ -185,13 +224,27 @@ def makeHierarchy(uuid, path):
             makeHierarchy(child, path / name)
 
     elif type_of[uuid] == type_original:
-        #copy original photo
-        to_here = path / name
-        copy(location_of[uuid], to_here)
+        if DRY_RUN == False:
+            #copy original photo
+            to_here = path / name
+            copy(location_of[uuid], to_here)
 
     elif type_of[uuid] == type_version:
-        for master in versions[uuid]:
-            copy(location_of[uuid], path / name)
+
+        #TODO: if there are two masters (ex: raw + jpg) this is a coin flip
+        master = list(versions[uuid])[0]
+
+        version_file = import_group_path[import_group[master]]  / master / ("Version-" + str(version_number[uuid]) + ".apversion")
+        with open(version_file, 'rb') as f :
+            parsed = bplist.parse(f.read())
+            upToDate = parsed["imageProxyState"]["fullSizePreviewUpToDate"]
+            previewPath = path_to_aplib / "Previews"/ parsed["imageProxyState"]["fullSizePreviewPath"]
+
+        if upToDate != True:
+            raise Exception("Preview not up to date!")
+        if DRY_RUN == False:
+            to_here = path / name
+            copy(previewPath, to_here)
 
 
 #TODO: what happens if I make this something higher up?
