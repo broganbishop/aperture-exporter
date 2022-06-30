@@ -2,7 +2,6 @@
 
 #TODO: check that the library is version 3.6
 #TODO: accept command line args
-#TODO: Export items in albums
 #TODO: remove items from parent project if exists in album (optionally)
 #TODO: Export generated preview for adjusted photos
 #TODO: preserve version name if different from original file name
@@ -23,6 +22,8 @@ export_path = Path("/Users/user/Desktop/")
 
 global VERBOSE
 VERBOSE = True
+global EXPORT_ALBUMS
+EXPORT_ALBUMS = True
 
 global type_undefined
 type_undefined = 0
@@ -38,35 +39,6 @@ global type_version
 type_version = 5
 
 
-def makeHierarchy(uuid, path):
-    name = name_of[uuid]
-    if VERBOSE:
-        print(str(path / name))
-
-    if type_of[uuid] in [type_folder, type_project, type_album]:
-        try:
-            #create a directory
-            os.mkdir(path / name)
-        except FileExistsError  as e:
-            pass
-        if uuid not in children_of:
-            raise Exception("Folder/Project/Album not in children_of dict!")
-
-        #recurse on each child
-        for child in children_of[uuid]:
-            makeHierarchy(child, path / name)
-
-    elif type_of[uuid] == type_original:
-        #copy original photo
-        to_here = path / name
-        copy(location_of[uuid], to_here)
-
-
-
-
-#connect to Library sqlite3 database
-con = sqlite3.connect(path_to_aplib / "Database/apdb/Library.apdb")
-cur = con.cursor()
 
 ################################################
 #define dictionaries
@@ -106,6 +78,10 @@ versions = {}
 # Extract info from sqlite tables
 ################################################
 
+#connect to Library sqlite3 database
+con = sqlite3.connect(path_to_aplib / "Database/apdb/Library.apdb")
+cur = con.cursor()
+
 #From table RKFolder
 #This table holds information about all folders and projects (TopLevel stuff too)
 for uuid,parent,name,folderType in cur.execute('select uuid, parentFolderUuid, name, folderType from RKFolder'):
@@ -122,6 +98,17 @@ for uuid,parent,name,folderType in cur.execute('select uuid, parentFolderUuid, n
     else:
         raise Exception("Item in RKFolder has undefined type!")
         type_of[uuid] = type_undefined
+
+
+#From table RKVersion
+#information about versions (uuid of corresponding originals)
+for uuid,master,raw,nonraw,adjusted in cur.execute('select uuid, masterUuid, rawMasterUuid, nonRawMasterUuid, hasAdjustments from RKVersion'):
+    master_set = {master, raw, nonraw}
+    master_set.remove(None)
+    if len(master_set) > 2:
+        raise Exception("More than 2 masters?")
+    versions[uuid] = master_set
+
 
 
 #From table RKAlbum
@@ -141,17 +128,15 @@ for uuid,albumType,subclass,name,parent in cur.execute('select uuid, albumType, 
         albumFilePath = path_to_aplib / "Database/Albums" / (uuid + ".apalbum")
         with open(albumFilePath, "rb") as f:
             parsed = bplist.parse(f.read())
+
+            #TODO: do we need this
             albums[uuid] = parsed["versionUuids"]
 
+            #add the masters as children of the album
+            for vuuid in parsed["versionUuids"]:
+                children_of[uuid] += list(versions[vuuid])
 
-#From table RKVersion
-#information about versions (uuid of corresponding originals)
-for uuid,master,raw,nonraw,adjusted in cur.execute('select uuid, masterUuid, rawMasterUuid, nonRawMasterUuid, hasAdjustments from RKVersion'):
-    master_set = {master, raw, nonraw}
-    master_set.remove(None)
-    if len(master_set) > 2:
-        raise Exception("More than 2 masters?")
-    versions[uuid] = master_set
+
 
 
 #add originals to dicts and a list
@@ -176,6 +161,38 @@ for uuid,origfname,imagePath,projectUuid in cur.execute('select uuid, originalFi
 ################################################
 # Export
 ################################################
+
+def makeHierarchy(uuid, path):
+    #skip albums if the option is set
+    if type_of[uuid] == type_album and EXPORT_ALBUMS == False:
+        return
+
+    name = name_of[uuid]
+    if VERBOSE:
+        print(str(path / name))
+
+    if type_of[uuid] in [type_folder, type_project, type_album]:
+        try:
+            #create a directory
+            os.mkdir(path / name)
+        except FileExistsError  as e:
+            pass
+        if uuid not in children_of:
+            raise Exception("Folder/Project/Album not in children_of dict!")
+
+        #recurse on each child
+        for child in children_of[uuid]:
+            makeHierarchy(child, path / name)
+
+    elif type_of[uuid] == type_original:
+        #copy original photo
+        to_here = path / name
+        copy(location_of[uuid], to_here)
+
+    elif type_of[uuid] == type_version:
+        for master in versions[uuid]:
+            copy(location_of[uuid], path / name)
+
 
 #TODO: what happens if I make this something higher up?
 root_uuid = "AllProjectsItem"
