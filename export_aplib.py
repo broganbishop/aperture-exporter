@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 
+#TODO: check that the library is version 3.6
+#TODO: accept command line args
+#TODO: Export items in albums
+#TODO: remove items from parent project if exists in album (optionally)
+#TODO: Export generated preview for adjusted photos
+#TODO: preserve version name if different from original file name
+#TODO: handle referenced photos
+
 import sys, os
 from pathlib import Path
 #from tqdm import tqdm
@@ -12,14 +20,9 @@ from bpylist import bplist
 path_to_aplib = Path("/Users/user/Desktop/JAN-S FAMILY 2013*Z.aplibrary")
 export_path = Path("/Users/user/Desktop/")
 
-path_to_aplib = Path("/Volumes/SanDisk 32/JAN-S FAMILY 2013*Z.aplibrary")
-
 
 global VERBOSE
 VERBOSE = True
-
-global folder_paths 
-folder_paths = {}
 
 global type_undefined
 type_undefined = 0
@@ -37,22 +40,27 @@ type_version = 5
 
 def makeHierarchy(uuid, path):
     name = name_of[uuid]
-
     if VERBOSE:
         print(str(path / name))
 
     if type_of[uuid] in [type_folder, type_project, type_album]:
-        folder_paths[uuid] = path / name
         try:
+            #create a directory
             os.mkdir(path / name)
         except FileExistsError  as e:
             pass
-
         if uuid not in children_of:
-            return
+            raise Exception("Folder/Project/Album not in children_of dict!")
 
+        #recurse on each child
         for child in children_of[uuid]:
             makeHierarchy(child, path / name)
+
+    elif type_of[uuid] == type_original:
+        #copy original photo
+        to_here = path / name
+        copy(location_of[uuid], to_here)
+
 
 
 
@@ -79,6 +87,10 @@ name_of = {}
 global parent_of
 parent_of = {}
 #
+#uuid --> path of object
+global location_of
+location_of = {}
+#
 #dictionary for albums
 #uuid (album) -- list of uuids (versions in album)
 global albums
@@ -91,7 +103,7 @@ versions = {}
 
 
 ################################################
-# Begin extracting info from library sqlite tables
+# Extract info from sqlite tables
 ################################################
 
 #From table RKFolder
@@ -122,6 +134,7 @@ for uuid,albumType,subclass,name,parent in cur.execute('select uuid, albumType, 
         type_of[uuid] = type_album
         parent_of[uuid] = parent
         name_of[uuid] = name
+        children_of[uuid] = []
         if parent not in children_of:
             children_of[parent] = []
         children_of[parent].append(uuid)
@@ -141,43 +154,31 @@ for uuid,master,raw,nonraw,adjusted in cur.execute('select uuid, masterUuid, raw
     versions[uuid] = master_set
 
 
+#add originals to dicts and a list
+for uuid,origfname,imagePath,projectUuid in cur.execute('select uuid, originalFileName, imagePath, projectUuid from RKMaster'):
+    type_of[uuid] = type_original
+    parent_of[uuid] = projectUuid
+    name_of[uuid] = origfname
+
+    if projectUuid not in children_of:
+        children_of[projectUuid] = []
+    children_of[projectUuid].append(uuid)
+
+    #TODO: if in masters folder (within library)
+    #Assume photo is managed
+    location_of[uuid] = path_to_aplib / "Masters" / imagePath
+
+    #TODO if referenced
+        #TODO: if offline
+        #TODO: if online
+
+
 ################################################
 # Export
 ################################################
 
-
-
 #TODO: what happens if I make this something higher up?
 root_uuid = "AllProjectsItem"
-#create folder structure (folders, projects, and albums)
 makeHierarchy(root_uuid, export_path)
-
-
-
-#add originals to dicts and a list
-export_list = []
-for uuid,origfname,imagePath,projectUuid in cur.execute('select uuid, originalFileName, imagePath, projectUuid from RKMaster'):
-    parent_of[uuid] = projectUuid
-    name_of[uuid] = origfname
-
-    if uuid not in children_of:
-        children_of[projectUuid] = []
-    children_of[projectUuid] += uuid
-
-    #TODO: depricate this export list
-    export_list.append((uuid,imagePath))
-
-#for album_uuid in albums.keys():
-    #for photo_uuid in albums[album_uuid]:
-        #export_list.append((album_uuid, ph
-
-#export every master + raw into corresponding project or album
-for image in export_list:
-    from_here = path_to_aplib / "Masters" / image[1]
-    to_here = folder_paths[parent_of[image[0]]] / name_of[image[0]]
-    if VERBOSE:
-        print(to_here)
-    copy(from_here, to_here)
-
 
 #generate XMP file if there is worthy metadata
