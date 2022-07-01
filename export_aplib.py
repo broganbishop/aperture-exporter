@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 #TODO: check that the library is version 3.6
-#TODO: accept command line args
-#TODO: remove items from parent project if exists in album (optionally)
 #TODO: preserve version name if different from original file name
 #TODO: handle referenced photos
 
@@ -15,14 +13,8 @@ import sqlite3
 from shutil import copy
 from bpylist import bplist
 
-
-#TODO: make this generic
-path_to_aplib = Path("/Users/user/Desktop/JAN-S FAMILY 2013*Z.aplibrary")
-export_path = Path("/Users/user/Desktop/")
-
-
 global VERBOSE
-VERBOSE = True
+VERBOSE = False
 global EXPORT_ALBUMS
 EXPORT_ALBUMS = True
 global ALBUM_CHILDREN_COVER_PARENT_PROJECT  
@@ -38,6 +30,36 @@ type_album = 3
 type_original = 4
 type_version = 5
 
+################################################
+# handle command line arguments
+################################################
+
+del sys.argv[0]
+args = sys.argv
+
+if '--dry-run' in args:
+    DRY_RUN = True
+    args.remove("--dry-run")
+
+if '--no-albums' in args:
+    EXPORT_ALBUMS = False
+    ALBUM_CHILDREN_COVER_PARENT_PROJECT = False
+    args.remove("--no-albums")
+
+if '--no-cover' in args:
+    ALBUM_CHILDREN_COVER_PARENT_PROJECT = False
+    args.remove("--no-cover")
+
+if '--verbose' in args:
+    VERBOSE = True
+    args.remove("--verbose")
+
+if len(args) != 2:
+    raise Exception("Invalid number of args! ([options], aplib, export location)")
+
+
+path_to_aplib = Path(args[0])
+export_path = Path(args[1])
 
 
 ################################################
@@ -87,7 +109,12 @@ import_group_path = {}
 #master uuid --> import group uuid
 global import_group
 import_group = {}
-
+#
+global is_missing
+is_missing = set()
+#
+global is_reference
+is_reference = set()
 
 
 ################################################
@@ -106,11 +133,14 @@ for uuid,parent,name,folderType in cur.execute('select uuid, parentFolderUuid, n
     children_of[parent].append(uuid)
     name_of[uuid] = name
     parent_of[uuid] = parent
+    children_of[uuid] = []
     if folderType == 1:
         type_of[uuid] = type_folder
     elif folderType == 2:
         type_of[uuid] = type_project
         children_of[uuid] = []
+    elif folderType == 3: #TODO: should this be treated differently than 1?
+        type_of[uuid] = type_folder
     else:
         raise Exception("Item in RKFolder has undefined type!")
         type_of[uuid] = type_undefined
@@ -124,11 +154,16 @@ for uuid,year,month,day,time in cur.execute('select uuid, importYear, importMont
 
 #RKMaster
 #add originals to dicts and a list
-for uuid,origfname,imagePath,projectUuid,importGroupUuid in cur.execute('select uuid, originalFileName, imagePath, projectUuid, importGroupUuid from RKMaster'):
+for uuid,origfname,imagePath,projectUuid,importGroupUuid,isMissing,isRef in cur.execute('select uuid, originalFileName, imagePath, projectUuid, importGroupUuid, isMissing, fileIsReference from RKMaster'):
     type_of[uuid] = type_original
     parent_of[uuid] = projectUuid
     name_of[uuid] = origfname
     import_group[uuid] = importGroupUuid
+
+    if isMissing == 1:
+        is_missing.add(uuid)
+    if isRef == 1:
+        is_reference.add(uuid)
 
     if projectUuid not in children_of:
         children_of[projectUuid] = []
@@ -180,37 +215,41 @@ for uuid,albumType,subclass,name,parent in cur.execute('select uuid, albumType, 
             children_of[parent] = []
         children_of[parent].append(uuid)
         albumFilePath = path_to_aplib / "Database/Albums" / (uuid + ".apalbum")
-        with open(albumFilePath, "rb") as f:
-            parsed = bplist.parse(f.read())
+        try:
+            with open(albumFilePath, "rb") as f:
+                parsed = bplist.parse(f.read())
 
-            #TODO: do we need this
-            albums[uuid] = parsed["versionUuids"]
+                #TODO: do we need this
+                albums[uuid] = parsed["versionUuids"]
 
-            #determine parent project if any
-            parent_project = None
-            if ALBUM_CHILDREN_COVER_PARENT_PROJECT == True:
-                current_uuid = uuid
-                while type_of[current_uuid] != type_project:
-                    current_uuid = parent_of[current_uuid]
-                    if type_of[current_uuid] == type_project:
-                        parent_project = current_uuid
-                    elif current_uuid == "AllProjectsItem":
-                        break
+                #determine parent project if any
+                parent_project = None
+                if ALBUM_CHILDREN_COVER_PARENT_PROJECT == True:
+                    current_uuid = uuid
+                    while type_of[current_uuid] != type_project:
+                        current_uuid = parent_of[current_uuid]
+                        if type_of[current_uuid] == type_project:
+                            parent_project = current_uuid
+                        elif current_uuid == "AllProjectsItem":
+                            break
 
-            #add the masters as children of the album
-            for vuuid in parsed["versionUuids"]:
-                children_of[uuid] += list(versions[vuuid])
+                #add the masters as children of the album
+                for vuuid in parsed["versionUuids"]:
+                    children_of[uuid] += list(versions[vuuid])
 
-                #if the option is set, remove items from 
-                if ALBUM_CHILDREN_COVER_PARENT_PROJECT == True and parent_project != None:
-                    for item in [vuuid] + list(versions[vuuid]):
-                        try:
-                            children_of[parent_project].remove(item)
-                        except ValueError as e:
-                            pass
-                #if photo is adjusted, add it as a child of the album #TODO (this does not handle projects)
-                if vuuid in adjusted_photos:
-                    children_of[uuid].append(vuuid)
+                    #if the option is set, remove items from 
+                    if ALBUM_CHILDREN_COVER_PARENT_PROJECT == True and parent_project != None:
+                        for item in [vuuid] + list(versions[vuuid]):
+                            try:
+                                children_of[parent_project].remove(item)
+                            except ValueError as e:
+                                pass
+                    #if photo is adjusted, add it as a child of the album #TODO (this does not handle projects)
+                    if vuuid in adjusted_photos:
+                        children_of[uuid].append(vuuid)
+        except RuntimeError as e:
+            print("Unable to parse: " + str(albumFilePath) + " (" + name_of[uuid] + ")")
+            pass
 
 
 
@@ -235,6 +274,9 @@ def export(uuid, path):
         except FileExistsError  as e:
             pass
         if uuid not in children_of:
+            print(uuid)
+            print(name_of[uuid])
+            print(type_of[uuid])
             raise Exception("Folder/Project/Album not in children_of dict!")
 
         #recurse on each child
@@ -243,9 +285,11 @@ def export(uuid, path):
 
     elif type_of[uuid] == type_original:
         if DRY_RUN == False:
-            #copy original photo
-            to_here = path / name
-            copy(location_of[uuid], to_here)
+            #if the photo is not a reference or missing (TODO how trustworthy are these entries?)
+            if uuid not in is_reference and uuid not in is_missing:
+                to_here = path / name
+                #copy original photo
+                copy(location_of[uuid], to_here)
 
     elif type_of[uuid] == type_version:
 
