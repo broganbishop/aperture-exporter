@@ -1,6 +1,5 @@
 import sys, os
 from pathlib import Path
-from tqdm import tqdm
 import sqlite3
 from shutil import copy
 from bpylist import bplist
@@ -13,6 +12,9 @@ if len(argv) > 1:
         print(parsed)
         for e in parsed:
             print(e)
+
+        print(parsed["imageProxyState"])
+        print(parsed["imageProxyState"]["fullSizePreviewPath"])
 
 else:
 

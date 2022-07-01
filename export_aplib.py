@@ -1,10 +1,24 @@
 #!/usr/bin/env python3
 
+#Things to be done to library before running this program:
+# Upgrade to 3.6
+# may want to repair or rebuild library...
+# reconnect and consolidate  all referenced photos
+# Adjust previews to full-size (no limit) quality 10
+# Regenerate previews for adjusted photos (on compatible os! [black version problem])
+# verify the status of all photos (update isMissing for photos that are offline)
+
 #TODO: check that the library is version 3.6
 #TODO: preserve version name if different from original file name
 #TODO: handle referenced photos
-
+#TODO: make sure we aren't accidentally overwriting existing files exporting two photos w/ same name
+#TODO: use tqdm
+#TODO: check for folders with insane numbers of photos (1000+)
+#TODO: generate XMP file if there is worthy metadata
+#TODO: export trash?
 #TODO: children of should store sets not lists for performance reasons
+#TODO: Currently this exports "AllProjectsItem". should we export more of the hierarchy?
+#TODO: UNIT TESTS
 
 import sys, os
 from pathlib import Path
@@ -19,11 +33,12 @@ global EXPORT_ALBUMS
 EXPORT_ALBUMS = True
 global ALBUM_CHILDREN_COVER_PARENT_PROJECT  
 ALBUM_CHILDREN_COVER_PARENT_PROJECT = True
+global EXPORT_ADJUSTED
+EXPORT_ADJUSTED = True
 global DRY_RUN
 DRY_RUN = False
 
-global type_undefined, type_folder, type_project, type_album, type_original, type_version
-type_undefined = 0
+global type_folder, type_project, type_album, type_original, type_version
 type_folder = 1
 type_project = 2
 type_album = 3
@@ -54,9 +69,12 @@ if '--verbose' in args:
     VERBOSE = True
     args.remove("--verbose")
 
-if len(args) != 2:
-    raise Exception("Invalid number of args! ([options], aplib, export location)")
+if '--no-adjusted' in args:
+    EXPORT_ADJUSTED = False
+    args.remove("--no-adjusted")
 
+if len(args) != 2:
+    raise Exception("Invalid number of args! ([--options], aplib, export_location)")
 
 path_to_aplib = Path(args[0])
 export_path = Path(args[1])
@@ -85,14 +103,13 @@ parent_of = {}
 global location_of
 location_of = {}
 #
-#dictionary for albums
-#uuid (album) -- list of uuids (versions in album)
-global albums
-albums = {}
+# uuid (version) --> uuid(s) of originals (set) TODO make this a tuple?
+global all_masters_of
+all_masters_of = {}
 #
-# uuid (version) --> uuid(s) of originals
-global versions
-versions = {}
+# uuid (version) --> master uuid
+global master_of
+master_of = {}
 #
 # uuid (version) --> version number
 global version_number
@@ -139,11 +156,10 @@ for uuid,parent,name,folderType in cur.execute('select uuid, parentFolderUuid, n
     elif folderType == 2:
         type_of[uuid] = type_project
         children_of[uuid] = []
-    elif folderType == 3: #TODO: should this be treated differently than 1?
+    elif folderType == 3: #Same as 1?
         type_of[uuid] = type_folder
     else:
         raise Exception("Item in RKFolder has undefined type!")
-        type_of[uuid] = type_undefined
 
 #RKImportGroup
 #Date and time of each import group (used to store versions/full sized previews)
@@ -164,6 +180,8 @@ for uuid,origfname,imagePath,projectUuid,importGroupUuid,isMissing,isRef in cur.
         is_missing.add(uuid)
     if isRef == 1:
         is_reference.add(uuid)
+
+    #TODO: acctually check whether the file exists instead of asking the db
 
     if projectUuid not in children_of:
         children_of[projectUuid] = []
@@ -192,11 +210,12 @@ for uuid,name,master,raw,nonraw,adjusted,versionNum in cur.execute('select uuid,
     type_of[uuid] = type_version
     name_of[uuid] = name #TODO: preserve original file name
     version_number[uuid] = versionNum
+    master_of[uuid] = master
     master_set = {master, raw, nonraw}
     master_set.remove(None)
     if len(master_set) > 2:
         raise Exception("More than 2 masters?")
-    versions[uuid] = master_set
+    all_masters_of[uuid] = master_set
 
 
 
@@ -219,9 +238,6 @@ for uuid,albumType,subclass,name,parent in cur.execute('select uuid, albumType, 
             with open(albumFilePath, "rb") as f:
                 parsed = bplist.parse(f.read())
 
-                #TODO: do we need this
-                albums[uuid] = parsed["versionUuids"]
-
                 #determine parent project if any
                 parent_project = None
                 if ALBUM_CHILDREN_COVER_PARENT_PROJECT == True:
@@ -235,11 +251,11 @@ for uuid,albumType,subclass,name,parent in cur.execute('select uuid, albumType, 
 
                 #add the masters as children of the album
                 for vuuid in parsed["versionUuids"]:
-                    children_of[uuid] += list(versions[vuuid])
+                    children_of[uuid] += list(all_masters_of[vuuid])
 
                     #if the option is set, remove items from 
                     if ALBUM_CHILDREN_COVER_PARENT_PROJECT == True and parent_project != None:
-                        for item in [vuuid] + list(versions[vuuid]):
+                        for item in [vuuid] + list(all_masters_of[vuuid]):
                             try:
                                 children_of[parent_project].remove(item)
                             except ValueError as e:
@@ -249,7 +265,7 @@ for uuid,albumType,subclass,name,parent in cur.execute('select uuid, albumType, 
                         children_of[uuid].append(vuuid)
         except RuntimeError as e:
             print("Unable to parse: " + str(albumFilePath) + " (" + name_of[uuid] + ")")
-            pass
+            raise e
 
 
 
@@ -258,44 +274,39 @@ for uuid,albumType,subclass,name,parent in cur.execute('select uuid, albumType, 
 ################################################
 
 def export(uuid, path):
+    #set path to path of current object
+    path = path / name_of[uuid]
+
     #skip albums if the option is set
     if type_of[uuid] == type_album and EXPORT_ALBUMS == False:
         return
 
-    name = name_of[uuid]
     if VERBOSE:
-        print(str(path / name))
+        print(str(path))
 
     if type_of[uuid] in [type_folder, type_project, type_album]:
         try:
             if DRY_RUN == False:
                 #create a directory
-                os.mkdir(path / name)
+                os.mkdir(path)
         except FileExistsError  as e:
             pass
         if uuid not in children_of:
-            print(uuid)
-            print(name_of[uuid])
-            print(type_of[uuid])
             raise Exception("Folder/Project/Album not in children_of dict!")
 
         #recurse on each child
         for child in children_of[uuid]:
-            export(child, path / name)
+            export(child, path)
 
     elif type_of[uuid] == type_original:
         if DRY_RUN == False:
-            #if the photo is not a reference or missing (TODO how trustworthy are these entries?)
+            #if the photo is not a reference or missing 
             if uuid not in is_reference and uuid not in is_missing:
-                to_here = path / name
-                #copy original photo
-                copy(location_of[uuid], to_here)
+                copy(location_of[uuid], path)
 
-    elif type_of[uuid] == type_version:
+    elif type_of[uuid] == type_version and EXPORT_ADJUSTED:
 
-        #TODO: if there are two masters (ex: raw + jpg) this is a coin flip
-        master = list(versions[uuid])[0]
-
+        master = master_of[uuid]
         version_file = import_group_path[import_group[master]]  / master / ("Version-" + str(version_number[uuid]) + ".apversion")
         with open(version_file, 'rb') as f :
             parsed = bplist.parse(f.read())
@@ -305,12 +316,9 @@ def export(uuid, path):
         if upToDate != True:
             raise Exception("Preview not up to date!")
         if DRY_RUN == False:
-            to_here = path / name
-            copy(previewPath, to_here)
+            copy(previewPath, path)
 
 
-#TODO: what happens if I make this something higher up?
 root_uuid = "AllProjectsItem"
 export(root_uuid, export_path)
 
-#TODO: generate XMP file if there is worthy metadata
