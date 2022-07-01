@@ -6,6 +6,8 @@
 #TODO: preserve version name if different from original file name
 #TODO: handle referenced photos
 
+#TODO: children of should store sets not lists for performance reasons
+
 import sys, os
 from pathlib import Path
 #from tqdm import tqdm
@@ -23,20 +25,17 @@ global VERBOSE
 VERBOSE = True
 global EXPORT_ALBUMS
 EXPORT_ALBUMS = True
+global ALBUM_CHILDREN_COVER_PARENT_PROJECT  
+ALBUM_CHILDREN_COVER_PARENT_PROJECT = True
 global DRY_RUN
-DRY_RUN = True
+DRY_RUN = False
 
-global type_undefined
+global type_undefined, type_folder, type_project, type_album, type_original, type_version
 type_undefined = 0
-global type_folder
 type_folder = 1
-global type_project
 type_project = 2
-global type_album
 type_album = 3
-global type_original
 type_original = 4
-global type_version 
 type_version = 5
 
 
@@ -187,9 +186,28 @@ for uuid,albumType,subclass,name,parent in cur.execute('select uuid, albumType, 
             #TODO: do we need this
             albums[uuid] = parsed["versionUuids"]
 
+            #determine parent project if any
+            parent_project = None
+            if ALBUM_CHILDREN_COVER_PARENT_PROJECT == True:
+                current_uuid = uuid
+                while type_of[current_uuid] != type_project:
+                    current_uuid = parent_of[current_uuid]
+                    if type_of[current_uuid] == type_project:
+                        parent_project = current_uuid
+                    elif current_uuid == "AllProjectsItem":
+                        break
+
             #add the masters as children of the album
             for vuuid in parsed["versionUuids"]:
                 children_of[uuid] += list(versions[vuuid])
+
+                #if the option is set, remove items from 
+                if ALBUM_CHILDREN_COVER_PARENT_PROJECT == True and parent_project != None:
+                    for item in [vuuid] + list(versions[vuuid]):
+                        try:
+                            children_of[parent_project].remove(item)
+                        except ValueError as e:
+                            pass
                 #if photo is adjusted, add it as a child of the album #TODO (this does not handle projects)
                 if vuuid in adjusted_photos:
                     children_of[uuid].append(vuuid)
@@ -200,7 +218,7 @@ for uuid,albumType,subclass,name,parent in cur.execute('select uuid, albumType, 
 # Export
 ################################################
 
-def makeHierarchy(uuid, path):
+def export(uuid, path):
     #skip albums if the option is set
     if type_of[uuid] == type_album and EXPORT_ALBUMS == False:
         return
@@ -221,7 +239,7 @@ def makeHierarchy(uuid, path):
 
         #recurse on each child
         for child in children_of[uuid]:
-            makeHierarchy(child, path / name)
+            export(child, path / name)
 
     elif type_of[uuid] == type_original:
         if DRY_RUN == False:
@@ -249,6 +267,6 @@ def makeHierarchy(uuid, path):
 
 #TODO: what happens if I make this something higher up?
 root_uuid = "AllProjectsItem"
-makeHierarchy(root_uuid, export_path)
+export(root_uuid, export_path)
 
-#generate XMP file if there is worthy metadata
+#TODO: generate XMP file if there is worthy metadata
