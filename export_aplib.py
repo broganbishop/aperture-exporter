@@ -121,11 +121,14 @@ import_group_path = {}
 global import_group
 import_group = {}
 #
-global keywords
-keywords = {}
+global keywords_of
+keywords_of = {}
 #
 global rating
 rating = {}
+#
+global unavailable
+unavailable = set()
 
 
 ########################################################################
@@ -179,12 +182,17 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
         'from RKMaster'):
     type_of[uuid] = type_original
     parent_of[uuid] = projectUuid
+    if origfname == None:
+        raise Exception("No original file name. REBUILD DATABASE!")
     name_of[uuid] = origfname
     import_group[uuid] = importGroupUuid
 
 
     if projectUuid not in children_of:
         children_of[projectUuid] = []
+
+    #TODO:
+    location_of[uuid] = path_to_aplib / "Masters" / imagePath
 
     #TODO: acctually check whether the file exists instead of asking the db
     #If the file is present, then add it to be exported
@@ -197,15 +205,38 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
         #add location (including Volume)
         #add it to the hierarchy
         pass
+    
+    if isMissing == 1 or isRef == 1:
+        unavailable.add(uuid)
 
 
 
 #From table RKVersion
 #information about versions (uuid of corresponding originals)
-for uuid, name, master, raw, nonraw, adjusted, versionNum in cur.execute(
+for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
+        hasKeywords in cur.execute(
         'select uuid, name, masterUuid, rawMasterUuid, nonRawMasterUuid, '
-        'hasEnabledAdjustments, versionNumber '
+        'hasEnabledAdjustments, versionNumber, mainRating, hasKeywords '
         'from RKVersion'):
+    version_file = (import_group_path[import_group[master]] / master /
+            ("Version-" + str(versionNum) + ".apversion"))
+    with open(version_file, 'rb') as f :
+        parsed = bplist.parse(f.read())
+        if "imageProxyState" in parsed:
+            upToDate = parsed["imageProxyState"]["fullSizePreviewUpToDate"]
+        else:
+            raise Exception("No imageProxyState! GENERATE PREVIEWS")
+        if adjusted:
+            previewPath = (path_to_aplib / "Previews"
+                    / parsed["imageProxyState"]["fullSizePreviewPath"])
+        if hasKeywords == 1:
+            #TODO
+            if "Keywords" in parsed["iptcProperties"]:
+                keywords = parsed["iptcProperties"]["Keywords"] #type string
+            else:
+                keywords = parsed["iptcProperties"] #SpecialInstructions???
+            keywords = parsed["keywords"] #type list
+
     if adjusted == 1:
         adjusted_photos.add(uuid)
 
@@ -214,25 +245,27 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum in cur.execute(
         #TODO: this is partly wrong
         #       (an adjusted version might not sit with its master)
         #(might have to handle implicit albums to do this right)
-        version_file = (import_group_path[import_group[master]] / master /
-                ("Version-" + str(versionNum) + ".apversion"))
-        with open(version_file, 'rb') as f :
-            parsed = bplist.parse(f.read())
-            upToDate = parsed["imageProxyState"]["fullSizePreviewUpToDate"]
-            previewPath = (path_to_aplib / "Previews"
-                    / parsed["imageProxyState"]["fullSizePreviewPath"])
         if upToDate != True:
             raise Exception("Preview not up to date!")
         location_of[uuid] = previewPath
         children_of[parent_of[master]].append(uuid)
 
+    if hasKeywords == 1:
+        #TODO: should these go to the master
+        #when photo is adjusted? when photo isn't?
+        keywords_of[uuid] = keywords
+        #print("Found keywords: " + str(keywords))
+
+    if mainRating != 0:
+        #TODO
+        rating[uuid] = mainRating
+        #print("Found rating: " + str(mainRating))
+
     type_of[uuid] = type_version
     name_of[uuid] = name + ".jpg" #TODO: preserve original file name
     master_of[uuid] = master
-    master_set = {master, raw, nonraw}
+    master_set = {raw, nonraw}
     master_set.remove(None)
-    if len(master_set) > 2:
-        raise Exception("More than 2 masters?")
     all_masters_of[uuid] = master_set
 
 
@@ -270,7 +303,9 @@ for uuid, albumType, subclass, name, parent in cur.execute(
 
                 #add the masters as children of the album
                 for vuuid in parsed["versionUuids"]:
-                    children_of[uuid] += list(all_masters_of[vuuid])
+                    for master in all_masters_of[vuuid]:
+                        if master not in unavailable:
+                            children_of[uuid].append(master)
 
                     # if the ECLIPSE option is set, 
                     # remove items from the parental project
