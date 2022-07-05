@@ -10,17 +10,15 @@
 # verify the status of all photos
 #       (update isMissing for photos that are offline)
 
-#TODO: check that the library is version 3.6
 #TODO: preserve version name if different from original file name
 #TODO: use tqdm
-#TODO: check for folders with insane numbers of photos (1000+)
 #TODO: generate XMP file if there is worthy metadata
-#TODO: export trash?
-#TODO: children of should store sets not lists for performance reasons
+#TODO: children_of should store sets not lists for performance reasons
 #TODO: Currently this exports "AllProjectsItem". should we export more?
+#export trash?
+#export albums in top level albums
 #TODO: UNIT TESTS
 #TODO: switch to a "Version-centric" model of exporting
-#TODO: export albums in top level albums
 
 import sys
 import os
@@ -30,6 +28,7 @@ import sqlite3
 from shutil import copy2
 from bpylist import bplist
 import hashlib
+import plistlib
 
 global VERBOSE
 VERBOSE = False
@@ -142,10 +141,6 @@ sha256_of = {}
 #
 global volume
 volume = {}
-#
-#TODO: why not name_of?
-global new_file_name_of
-new_file_name_of = {}
 
 
 def getSHA256(filepath):
@@ -159,6 +154,12 @@ def getSHA256(filepath):
 ########################################################################
 # Extract info from sqlite tables
 ########################################################################
+
+#Check that the aperture lib is upgraded to 3.6
+with open(path_to_aplib / "Info.plist", "rb") as info_plist:
+    info = plistlib.load(info_plist)
+    if info["CFBundleShortVersionString"] != "3.6":
+        raise Exception("Aperture Library is not version 3.6! UPGRADE")
 
 #connect to Library sqlite3 database
 con = sqlite3.connect(path_to_aplib / "Database/apdb/Library.apdb")
@@ -245,8 +246,6 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
         location_of[uuid] = fullImagePath
         children_of[projectUuid].append(uuid)
 
-
-
     else:
         unavailable.add(uuid)
     
@@ -276,8 +275,7 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
                         / parsed["imageProxyState"]["fullSizePreviewPath"])
             if hasKeywords == 1:
                 #TODO
-                if ("iptcProperties" in parsed 
-                        and "Keywords" in parsed["iptcProperties"]):
+                if ("iptcProperties" in parsed and "Keywords" in parsed["iptcProperties"]):
                     keywords = parsed["iptcProperties"]["Keywords"] #type string
                 elif "keywords" in parsed:
                     keywords = parsed["keywords"] #type list
@@ -395,12 +393,10 @@ for uuid in children_of.keys():
 ################################################
 
 def export(uuid, path):
-    #path = path / name_of[uuid]
 
     if EXPORT_ALBUMS == False:
         if type_of[uuid] == type_album:
             return
-
 
     if type_of[uuid] in [type_folder, type_project, type_album]:
         if VERBOSE:
