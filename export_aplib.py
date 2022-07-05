@@ -10,7 +10,7 @@
 # verify the status of all photos
 #       (update isMissing for photos that are offline)
 
-#TODO: preserve version name if different from original file name
+#TODO: captions, titles, version name if different from original file name
 #TODO: use tqdm
 #TODO: children_of should store sets not lists for performance reasons
 #TODO: UNIT TESTS
@@ -28,6 +28,12 @@ import plistlib
 
 global VERBOSE
 VERBOSE = False
+def vprint(*args, **kwargs):
+    if VERBOSE:
+        print(*args, **kwargs)
+
+
+
 global EXPORT_ALBUMS
 EXPORT_ALBUMS = True
 global ECLIPSE
@@ -196,6 +202,8 @@ with open(path_to_aplib / "Info.plist", "rb") as info_plist:
     info = plistlib.load(info_plist)
     if info["CFBundleShortVersionString"] != "3.6":
         raise Exception("Aperture Library is not version 3.6! UPGRADE")
+    else:
+        vprint("Library version 3.6")
 
 #connect to Library sqlite3 database
 con = sqlite3.connect(path_to_aplib / "Database/apdb/Library.apdb")
@@ -203,6 +211,7 @@ cur = con.cursor()
 
 #From table RKFolder
 #This table holds information about all folders and projects
+vprint("Reading RKFolder...", end="", flush=True)
 for uuid, parent, name, folderType in cur.execute(
         'select uuid, parentFolderUuid, name, folderType '
         'from RKFolder'):
@@ -224,9 +233,12 @@ for uuid, parent, name, folderType in cur.execute(
     else:
         raise Exception("Item in RKFolder has undefined type!")
 
+vprint("done.")
+
 # RKImportGroup
 # Date and time of each import group
 # (used to store versions/full sized previews)
+vprint("Reading RKImportGroup...", end="", flush=True)
 for uuid, year, month, day, time in cur.execute(
         'select uuid, importYear, importMonth, importDay, importTime '
         'from RKImportGroup'):
@@ -234,15 +246,21 @@ for uuid, year, month, day, time in cur.execute(
             / year / month / day
             / (year + month + day + "-" + time))
 
+vprint("done.")
+
 #RKVolume
 #volume info for referenced files
+vprint("Reading RKVolume...", end='', flush=True)
 for uuid, name in cur.execute(
         'select uuid, name from RKVolume'):
     volume[uuid] = name
 
+vprint("done.")
+
 
 #RKMaster
 #add originals to dicts and a list
+vprint("Reading RKMaster...", end='', flush=True)
 for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
         isRef, vol_uuid, origvname, inTrash in cur.execute(
         'select uuid, originalFileName, imagePath, projectUuid, '
@@ -287,11 +305,37 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
     else:
         unavailable.add(uuid)
     
+vprint("done.")
 
+def addMetadata(uuid, key, data):
+    if uuid not in metadata:
+        metadata[uuid] = {}
+
+    if key == "keywords":
+        if "keywords" not in metadata[uuid]:
+            metadata[uuid]["keywords"] = set()
+        metadata[uuid]["keywords"] |= set(map(str.strip, data))
+
+    elif key == "rating":
+        if "rating" not in metadata[uuid]:
+            metadata[uuid]["rating"] = data
+        else:
+            raise Exception("Multiple Ratings")
+            metadata[uuid]["rating"] = max(metadata[uuid]["rating"], data)
+
+    else:
+        if key in metadata[uuid]:
+            print(uuid, key, data)
+            raise Exception("Key already in metadata")
+        else:
+            metadata[uuid][key] = data
+
+    
 
 
 #From table RKVersion
 #information about versions (uuid of corresponding originals)
+vprint("Reading RKVersion...", end='', flush=True)
 for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
         hasKeywords in cur.execute(
         'select uuid, name, masterUuid, rawMasterUuid, nonRawMasterUuid, '
@@ -300,6 +344,8 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
     version_file = (import_group_path[import_group[master]] / master /
             ("Version-" + str(versionNum) + ".apversion"))
 
+    caption = None
+    title = None
     if versionNum > 0:
         with open(version_file, 'rb') as f :
             parsed = bplist.parse(f.read())
@@ -317,6 +363,11 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
                     keywords = parsed["keywords"]
                 else:
                     raise Exception("No keywords??")
+            if "iptcProperties" in parsed:
+                if "Caption/Abstract" in parsed["iptcProperties"]:
+                    caption = parsed["iptcProperties"]["Caption/Abstract"]
+                if "ObjectName" in parsed["iptcProperties"]:
+                    title = parsed["iptcProperties"]["ObjectName"]
 
     type_of[uuid] = type_version
     basename_of[uuid] = name
@@ -347,11 +398,8 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
             uuids.append[uuid]
         uuids += list(all_masters_of[uuid])
         for item in uuids:
-            if item not in metadata:
-                metadata[item] = {}
-            if "keywords" not in metadata[item]:
-                metadata[item]["keywords"] = set()
-            metadata[item]["keywords"] |= set(map(str.strip,keywords))
+            addMetadata(item, "keywords", keywords)
+
 
     if mainRating != 0:
         uuids = []
@@ -360,17 +408,20 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
         else:
             uuids = list(all_masters_of[uuid])
         for item in uuids:
-            if item not in metadata:
-                metadata[item] = {}
-            if "rating" not in metadata[item]:
-                metadata[item]["rating"] = mainRating
-            else:
-                metadata[item]["rating"] = max(metadata[item]["rating"], mainRating)
+            addMetadata(item, "rating", mainRating)
 
+    if caption != None:
+        #TODO: this is wrong
+        addMetadata(uuid, "caption", caption)
+
+vprint("done.")
+
+        
 
 
 #From table RKAlbum
 #holds info on every album in the aplib (some are built in)
+vprint("Reading RKAlbum...", end='', flush=True)
 for uuid, albumType, subclass, name, parent in cur.execute(
         'select uuid, albumType, albumSubclass, name, folderUuid '
         'from RKAlbum'):
@@ -428,6 +479,8 @@ for uuid, albumType, subclass, name, parent in cur.execute(
                     + name_of[uuid] + ")")
             raise e
 
+vprint("done.")
+
 
 ################################################
 # Pre-Export Sanity Checks
@@ -438,7 +491,7 @@ for uuid in children_of.keys():
         print(name_of[uuid] + ": " + len(children_of[uuid]))
         raise Exception("Warning! There are many items")
 
-
+vprint("Passed sanity checks.")
 
 ################################################
 # Export
@@ -454,8 +507,7 @@ def export(uuid, path):
         #skip empty directories
         #if uuid not in children_of or len(children_of[uuid]) == 0:
             #return
-        if VERBOSE:
-            print(str(path / name_of[uuid]))
+        vprint(str(path / name_of[uuid]))
         if DRY_RUN == False:
             os.mkdir(path / name_of[uuid]) #create a directory
 
@@ -473,11 +525,11 @@ def export(uuid, path):
             counter_str = " (" + str(counter) + ")"
             name_of[uuid] = basename_of[uuid] + counter_str + extension_of[uuid]
 
-        if VERBOSE:
-            print(str(path / name_of[uuid]))
+        vprint(str(path / name_of[uuid]))
         if DRY_RUN == False:
             copy2(location_of[uuid], path / name_of[uuid])
             if uuid in metadata:
+                vprint(metadata[uuid])
                 writeMetadataXMP(uuid, path / (name_of[uuid] + ".xmp"))
 
 #Exclude some junk
