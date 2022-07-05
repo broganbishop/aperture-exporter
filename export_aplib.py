@@ -12,11 +12,7 @@
 
 #TODO: preserve version name if different from original file name
 #TODO: use tqdm
-#TODO: generate XMP file if there is worthy metadata
 #TODO: children_of should store sets not lists for performance reasons
-#TODO: Currently this exports "AllProjectsItem". should we export more?
-#export trash?
-#export albums in top level albums
 #TODO: UNIT TESTS
 #TODO: switch to a "Version-centric" model of exporting
 
@@ -127,12 +123,6 @@ import_group_path = {}
 global import_group
 import_group = {}
 #
-global keywords_of
-keywords_of = {}
-#
-global rating
-rating = {}
-#
 global unavailable
 unavailable = set()
 #
@@ -141,6 +131,9 @@ sha256_of = {}
 #
 global volume
 volume = {}
+#
+global metadata
+metadata = {}
 
 
 def getSHA256(filepath):
@@ -150,6 +143,49 @@ def getSHA256(filepath):
             sha256_hash.update(byte_block)
     hash_str = sha256_hash.hexdigest()
     return hash_str
+
+def writeMetadataXMP(uuid, path):
+    if uuid not in metadata:
+        raise Exception("No metadata to write!")
+        return
+
+    if "rating" in metadata[uuid]:
+        rating_string = f"\t<xap:Rating>{metadata[uuid]['rating']}</xap:Rating>\n"
+    else:
+        rating_string = ""
+
+    if "keywords" in metadata[uuid]:
+        keyword_string = "\t<dc:subject><rdf:Bag>\n"
+        for k in metadata[uuid]["keywords"]:
+            keyword_string += f"\t\t<rdf:li>{k}</rdf:li>\n"
+        keyword_string += "\t</rdf:Bag></dc:subject>\n"
+    else:
+        keyword_string = ""
+
+    xmp_data = ("<?xpacket begin='' id=''?>\n"
+    "<x:xmpmeta xmlns:x='adobe:ns:meta/' x:xmptk='XMP toolkit 2.9-9, framework 1.6'>\n"
+    "<rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#' xmlns:iX='http://ns.adobe.com/iX/1.0/'>\n"
+    "<rdf:Description rdf:about='' xmlns:Iptc4xmpCore='http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/'>\n"
+    "</rdf:Description>\n"
+    "<rdf:Description rdf:about='' xmlns:photoshop='http://ns.adobe.com/photoshop/1.0/'>\n"
+    "</rdf:Description>\n"
+    "<rdf:Description rdf:about='' xmlns:dc='http://purl.org/dc/elements/1.1/'>\n"
+    + keyword_string +
+    "</rdf:Description>\n"
+    "<rdf:Description rdf:about='' xmlns:photomechanic='http://ns.camerabits.com/photomechanic/1.0/'>\n"
+    "</rdf:Description>\n"
+    "<rdf:Description rdf:about='' xmlns:xap='http://ns.adobe.com/xap/1.0/'>\n"
+    + rating_string + 
+    "</rdf:Description>\n"
+    "</rdf:RDF>\n"
+    "</x:xmpmeta>\n"
+    "<?xpacket end='w'?>\n")
+
+    if path.exists():
+        raise Exception("XMP file exists!!")
+    with open(path, "w") as xmp_file:
+        xmp_file.write(xmp_data)
+
 
 ########################################################################
 # Extract info from sqlite tables
@@ -208,12 +244,14 @@ for uuid, name in cur.execute(
 #RKMaster
 #add originals to dicts and a list
 for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
-        isRef, vol_uuid, origvname in cur.execute(
+        isRef, vol_uuid, origvname, inTrash in cur.execute(
         'select uuid, originalFileName, imagePath, projectUuid, '
         'importGroupUuid, isMissing, fileIsReference, fileVolumeUuid, '
-        'originalVersionName '
+        'originalVersionName, isInTrash '
         'from RKMaster'):
     type_of[uuid] = type_original
+    if inTrash == 1:
+        projectUuid = "TrashFolder"
     parent_of[uuid] = projectUuid
     import_group[uuid] = importGroupUuid
     if origfname == None:
@@ -262,7 +300,6 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
     version_file = (import_group_path[import_group[master]] / master /
             ("Version-" + str(versionNum) + ".apversion"))
 
-    #TODO: make sure we don't need anything in version-0
     if versionNum > 0:
         with open(version_file, 'rb') as f :
             parsed = bplist.parse(f.read())
@@ -274,13 +311,22 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
                 previewPath = (path_to_aplib / "Previews"
                         / parsed["imageProxyState"]["fullSizePreviewPath"])
             if hasKeywords == 1:
-                #TODO
                 if ("iptcProperties" in parsed and "Keywords" in parsed["iptcProperties"]):
-                    keywords = parsed["iptcProperties"]["Keywords"] #type string
+                    keywords = parsed["iptcProperties"]["Keywords"].split(",") #Strip whitespace?
                 elif "keywords" in parsed:
-                    keywords = parsed["keywords"] #type list
+                    keywords = parsed["keywords"]
                 else:
                     raise Exception("No keywords??")
+
+    type_of[uuid] = type_version
+    basename_of[uuid] = name
+    extension_of[uuid] = ".jpg"
+    name_of[uuid] = name + ".jpg" #TODO: preserve original file name
+    master_of[uuid] = master
+    master_set = {raw, nonraw}
+    if None in master_set:
+        master_set.remove(None)
+    all_masters_of[uuid] = master_set
 
     if adjusted == 1:
         adjusted_photos.add(uuid)
@@ -296,25 +342,31 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
         children_of[parent_of[master]].append(uuid)
 
     if hasKeywords == 1:
-        #TODO: should these go to the master
-        #when photo is adjusted? when photo isn't?
-        keywords_of[uuid] = keywords
-        #print("Found keywords: " + str(keywords))
+        uuids = []
+        if adjusted:
+            uuids.append[uuid]
+        uuids += list(all_masters_of[uuid])
+        for item in uuids:
+            if item not in metadata:
+                metadata[item] = {}
+            if "keywords" not in metadata[item]:
+                metadata[item]["keywords"] = set()
+            metadata[item]["keywords"] |= set(map(str.strip,keywords))
 
     if mainRating != 0:
-        #TODO
-        rating[uuid] = mainRating
-        #print("Found rating: " + str(mainRating))
+        uuids = []
+        if adjusted == 1:
+            uuids = [uuid]
+        else:
+            uuids = list(all_masters_of[uuid])
+        for item in uuids:
+            if item not in metadata:
+                metadata[item] = {}
+            if "rating" not in metadata[item]:
+                metadata[item]["rating"] = mainRating
+            else:
+                metadata[item]["rating"] = max(metadata[item]["rating"], mainRating)
 
-    type_of[uuid] = type_version
-    basename_of[uuid] = name
-    extension_of[uuid] = ".jpg"
-    name_of[uuid] = name + ".jpg" #TODO: preserve original file name
-    master_of[uuid] = master
-    master_set = {raw, nonraw}
-    if None in master_set:
-        master_set.remove(None)
-    all_masters_of[uuid] = master_set
 
 
 #From table RKAlbum
@@ -399,15 +451,16 @@ def export(uuid, path):
             return
 
     if type_of[uuid] in [type_folder, type_project, type_album]:
+        #skip empty directories
+        #if uuid not in children_of or len(children_of[uuid]) == 0:
+            #return
         if VERBOSE:
             print(str(path / name_of[uuid]))
-        try:
-            if DRY_RUN == False:
-                os.mkdir(path / name_of[uuid]) #create a directory
-        except FileExistsError as e:
-            pass
+        if DRY_RUN == False:
+            os.mkdir(path / name_of[uuid]) #create a directory
 
-        for child in children_of[uuid]:
+        #sort the children so that directories come first
+        for child in sorted(children_of[uuid], key=lambda c: type_of[c]):
             export(child, path / name_of[uuid]) #recurse on each child
 
     elif type_of[uuid] == type_original or (type_of[uuid] == type_version 
@@ -424,8 +477,18 @@ def export(uuid, path):
             print(str(path / name_of[uuid]))
         if DRY_RUN == False:
             copy2(location_of[uuid], path / name_of[uuid])
+            if uuid in metadata:
+                writeMetadataXMP(uuid, path / (name_of[uuid] + ".xmp"))
 
+#Exclude some junk
+exclude_if_empty = ['TopLevelBooks', 'TopLevelAlbums', 'TopLevelKeepsakes', 'TopLevelSlideshows',
+        'TopLevelWebProjects', 'TopLevelLightTables', 'PublishedProjects', 'TrashFolder']
+for uuid in exclude_if_empty:
+    if len(children_of[uuid]) == 0:
+        children_of[parent_of[uuid]].remove(uuid)
 
-root_uuid = "AllProjectsItem"
+root_uuid = "LibraryFolder"
+name_of["LibraryFolder"] = path_to_aplib.name + ".exported"
+name_of["TopLevelAlbums"] = "Albums"
 export(root_uuid, export_path)
 
