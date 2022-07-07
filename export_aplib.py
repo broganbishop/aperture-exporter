@@ -225,6 +225,22 @@ with open(path_to_aplib / "Info.plist", "rb") as info_plist:
 con = sqlite3.connect(path_to_aplib / "Database/apdb/Library.apdb")
 cur = con.cursor()
 
+
+#From table RKAdminData
+#general info about library
+vprint("Reading RKAdminData...", flush=True)
+for area, name, value in cur.execute(
+        'select propertyArea, propertyName, propertyValue from RKAdminData'):
+    if area == "database":
+        if name == "databaseUuid":
+            vprint("database uuid = ", value)
+        elif name == "previewSizeLimit":
+            vprint("previewSizeLimit =", value)
+        elif name == "previewQuality":
+            vprint("previewQuality =", value)
+vprint("done.")
+
+
 #From table RKFolder
 #This table holds information about all folders and projects
 vprint("Reading RKFolder...", end="", flush=True)
