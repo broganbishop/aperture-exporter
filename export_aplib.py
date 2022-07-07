@@ -170,22 +170,23 @@ def writeMetadataXMP(uuid, path):
 
     xmp_data = ("<?xpacket begin='' id=''?>\n"
     "<x:xmpmeta xmlns:x='adobe:ns:meta/' x:xmptk='XMP toolkit 2.9-9, framework 1.6'>\n"
-    "<rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#' xmlns:iX='http://ns.adobe.com/iX/1.0/'>\n"
-    "<rdf:Description rdf:about='' xmlns:Iptc4xmpCore='http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/'>\n"
+    "<rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#' "
+    "xmlns:iX='http://ns.adobe.com/iX/1.0/'>\n"
+    "<rdf:Description rdf:about='' "
+    "xmlns:Iptc4xmpCore='http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/'>\n"
     "</rdf:Description>\n"
     "<rdf:Description rdf:about='' xmlns:photoshop='http://ns.adobe.com/photoshop/1.0/'>\n"
     "</rdf:Description>\n"
     "<rdf:Description rdf:about='' xmlns:dc='http://purl.org/dc/elements/1.1/'>\n"
     + keyword_string +
     "</rdf:Description>\n"
-    "<rdf:Description rdf:about='' xmlns:photomechanic='http://ns.camerabits.com/photomechanic/1.0/'>\n"
+    "<rdf:Description rdf:about='' "
+    "xmlns:photomechanic='http://ns.camerabits.com/photomechanic/1.0/'>\n"
     "</rdf:Description>\n"
     "<rdf:Description rdf:about='' xmlns:xap='http://ns.adobe.com/xap/1.0/'>\n"
     + rating_string + 
     "</rdf:Description>\n"
-    "</rdf:RDF>\n"
-    "</x:xmpmeta>\n"
-    "<?xpacket end='w'?>\n")
+    "</rdf:RDF>\n</x:xmpmeta>\n<?xpacket end='w'?>\n")
 
     if path.exists():
         raise Exception("XMP file exists!!")
