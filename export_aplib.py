@@ -25,6 +25,7 @@ from shutil import copy2
 from bpylist import bplist
 import hashlib
 import plistlib
+from datetime import datetime
 
 global VERBOSE
 VERBOSE = False
@@ -168,6 +169,20 @@ def writeMetadataXMP(uuid, path):
     else:
         keyword_string = ""
 
+    if "caption" in metadata[uuid]:
+        caption_string = "<dc:description><rdf:Alt><rdf:li xml:lang='x-default'>"
+        caption_string += metadata[uuid]["caption"]
+        caption_string += "</rdf:li></rdf:Alt></dc:description>\n"
+    else:
+        caption_string = ""
+
+    if "title" in metadata[uuid]:
+        title_string = "<dc:title><rdf:Alt><rdf:li xml:lang='x-default'>"
+        title_string += metadata[uuid]["title"]
+        title_string += "</rdf:li></rdf:Alt></dc:title>\n"
+    else:
+        title_string = ""
+
     xmp_data = ("<?xpacket begin='' id=''?>\n"
     "<x:xmpmeta xmlns:x='adobe:ns:meta/' x:xmptk='XMP toolkit 2.9-9, framework 1.6'>\n"
     "<rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#' "
@@ -178,7 +193,7 @@ def writeMetadataXMP(uuid, path):
     "<rdf:Description rdf:about='' xmlns:photoshop='http://ns.adobe.com/photoshop/1.0/'>\n"
     "</rdf:Description>\n"
     "<rdf:Description rdf:about='' xmlns:dc='http://purl.org/dc/elements/1.1/'>\n"
-    + keyword_string +
+    + caption_string + keyword_string + title_string +
     "</rdf:Description>\n"
     "<rdf:Description rdf:about='' "
     "xmlns:photomechanic='http://ns.camerabits.com/photomechanic/1.0/'>\n"
@@ -214,8 +229,7 @@ cur = con.cursor()
 #This table holds information about all folders and projects
 vprint("Reading RKFolder...", end="", flush=True)
 for uuid, parent, name, folderType in cur.execute(
-        'select uuid, parentFolderUuid, name, folderType '
-        'from RKFolder'):
+        'select uuid, parentFolderUuid, name, folderType from RKFolder'):
     if uuid not in children_of:
         children_of[uuid] = []
     if parent not in children_of:
@@ -233,20 +247,19 @@ for uuid, parent, name, folderType in cur.execute(
         type_of[uuid] = type_folder
     else:
         raise Exception("Item in RKFolder has undefined type!")
-
 vprint("done.")
+
 
 # RKImportGroup
 # Date and time of each import group
 # (used to store versions/full sized previews)
 vprint("Reading RKImportGroup...", end="", flush=True)
 for uuid, year, month, day, time in cur.execute(
-        'select uuid, importYear, importMonth, importDay, importTime '
-        'from RKImportGroup'):
+        'select uuid, importYear, importMonth, importDay, importTime from RKImportGroup'):
     import_group_path[uuid] = (path_to_aplib / "Database" / "Versions"
-            / year / month / day
-            / (year + month + day + "-" + time))
+            / year / month / day / (year + month + day + "-" + time))
 vprint("done.")
+
 
 #RKVolume
 #volume info for referenced files
@@ -261,10 +274,8 @@ vprint("done.")
 vprint("Reading RKMaster...", end='', flush=True)
 for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
         isRef, vol_uuid, origvname, inTrash in cur.execute(
-        'select uuid, originalFileName, imagePath, projectUuid, '
-        'importGroupUuid, isMissing, fileIsReference, fileVolumeUuid, '
-        'originalVersionName, isInTrash '
-        'from RKMaster'):
+        'select uuid, originalFileName, imagePath, projectUuid, importGroupUuid, isMissing, '
+        'fileIsReference, fileVolumeUuid, originalVersionName, isInTrash from RKMaster'):
     type_of[uuid] = type_original
     if inTrash == 1:
         projectUuid = "TrashFolder"
@@ -273,6 +284,7 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
     if origfname == None:
         raise Exception("No original file name. REBUILD DATABASE!")
 
+    #split the file into basename and file extension
     if "." in origfname:
         ext,basename = origfname[::-1].split(".", 1)
         ext,basename = ("." + ext[::-1]),basename[::-1]
@@ -284,6 +296,7 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
         raise Exception("No file extention!")
 
     if projectUuid not in children_of:
+        raise Exception("149")
         children_of[projectUuid] = []
 
     if isRef == 0:
@@ -302,8 +315,8 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
 
     else:
         unavailable.add(uuid)
-    
 vprint("done.")
+
 
 def addMetadata(uuid, key, data):
     if uuid not in metadata:
@@ -486,9 +499,13 @@ vprint("done.")
 for uuid in children_of.keys():
     if len(children_of[uuid]) > DIRECTORY_THRESHOLD:
         print(name_of[uuid] + ": " + len(children_of[uuid]))
-        raise Exception("Warning! There are many items")
+        raise Exception("Warning! Items exceed threshold.")
 
 vprint("Passed sanity checks.")
+
+vprint("There are " + str(len(metadata)) + " photos with metadata.")
+
+#input("Proceed?")
 
 ################################################
 # Export
@@ -517,17 +534,21 @@ def export(uuid, path):
 
         #don't overwrite files of the same name
         counter = 0
+        basename = basename_of[uuid]
         while (path / name_of[uuid]).exists():
             counter += 1
             counter_str = " (" + str(counter) + ")"
-            name_of[uuid] = basename_of[uuid] + counter_str + extension_of[uuid]
+            basename_of[uuid] = basename + counter_str
+            name_of[uuid] = basename_of[uuid] + extension_of[uuid]
+
 
         vprint(str(path / name_of[uuid]))
         if DRY_RUN == False:
             copy2(location_of[uuid], path / name_of[uuid])
             if uuid in metadata:
+                vprint(path / (basename_of[uuid] + ".xmp"))
                 vprint(metadata[uuid])
-                writeMetadataXMP(uuid, path / (name_of[uuid] + ".xmp"))
+                writeMetadataXMP(uuid, path / (basename_of[uuid] + ".xmp"))
 
 #Exclude some junk
 exclude_if_empty = ['TopLevelBooks', 'TopLevelAlbums', 'TopLevelKeepsakes', 'TopLevelSlideshows',
@@ -537,7 +558,8 @@ for uuid in exclude_if_empty:
         children_of[parent_of[uuid]].remove(uuid)
 
 root_uuid = "LibraryFolder"
-name_of["LibraryFolder"] = path_to_aplib.name + ".exported"
+name_of["LibraryFolder"] = (path_to_aplib.name + " xptd " 
+        + str(datetime.now().__format__("%Y%m%d%H%M%S")))
 name_of["TopLevelAlbums"] = "Albums"
 export(root_uuid, export_path)
 
