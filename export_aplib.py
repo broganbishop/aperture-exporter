@@ -246,16 +246,13 @@ for uuid, year, month, day, time in cur.execute(
     import_group_path[uuid] = (path_to_aplib / "Database" / "Versions"
             / year / month / day
             / (year + month + day + "-" + time))
-
 vprint("done.")
 
 #RKVolume
 #volume info for referenced files
 vprint("Reading RKVolume...", end='', flush=True)
-for uuid, name in cur.execute(
-        'select uuid, name from RKVolume'):
+for uuid, name in cur.execute('select uuid, name from RKVolume'):
     volume[uuid] = name
-
 vprint("done.")
 
 
@@ -424,8 +421,7 @@ vprint("done.")
 #holds info on every album in the aplib (some are built in)
 vprint("Reading RKAlbum...", end='', flush=True)
 for uuid, albumType, subclass, name, parent in cur.execute(
-        'select uuid, albumType, albumSubclass, name, folderUuid '
-        'from RKAlbum'):
+        'select uuid, albumType, albumSubclass, name, folderUuid from RKAlbum'):
     if albumType != 1:
         raise Exception("Album type not 1")
     #these seem to be the only albums that are important
