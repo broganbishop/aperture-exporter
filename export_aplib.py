@@ -397,49 +397,44 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
                     title = parsed["iptcProperties"]["ObjectName"]
 
     type_of[uuid] = type_version
-    basename_of[uuid] = name
-    extension_of[uuid] = ".jpg"
-    name_of[uuid] = name + ".jpg" #TODO: preserve original file name
+    basename_of[uuid] = name #version name
+
     master_of[uuid] = master
-    master_set = {raw, nonraw}
+    master_set = {nonraw, raw} #TODO: tuple?
     if None in master_set:
         master_set.remove(None)
     all_masters_of[uuid] = master_set
 
+    if len(master_set) > 1:
+        raise Exception("Broken assumtion: more than one master")
+
     if adjusted == 1:
         adjusted_photos.add(uuid)
-
-        # Find the path to full size preview
-        # add version uuid as child of project
-        #TODO: this is partly wrong
-        #       (an adjusted version might not sit with its master)
-        #(might have to handle implicit albums to do this right)
         if upToDate != True:
             raise Exception("Preview not up to date!")
         location_of[uuid] = previewPath
+        extension_of[uuid] = ".jpg"
+        name_of[uuid] = name + extension_of[uuid]
+        #TODO: where should the version be added in the hierarchy
+        children_of[parent_of[master]].append(uuid)
+    else:
+        extension_of[uuid] = extension_of[master]
+        name_of[uuid] = name + extension_of[uuid]
+        location_of[uuid] = location_of[master]
+        #TODO: where should the version be added in the hierarchy
         children_of[parent_of[master]].append(uuid)
 
     if hasKeywords == 1:
-        uuids = []
-        if adjusted:
-            uuids.append[uuid]
-        uuids += list(all_masters_of[uuid])
-        for item in uuids:
-            addMetadata(item, "keywords", keywords)
-
+        addMetadata(uuid, "keywords", keywords)
 
     if mainRating != 0:
-        uuids = []
-        if adjusted == 1:
-            uuids = [uuid]
-        else:
-            uuids = list(all_masters_of[uuid])
-        for item in uuids:
-            addMetadata(item, "rating", mainRating)
+        addMetadata(uuid, "rating", mainRating)
 
     if caption != None:
-        #TODO: this is wrong
         addMetadata(uuid, "caption", caption)
+
+    if title != None:
+        addMetadata(uuid, "title", title)
 
 vprint("done.")
 
