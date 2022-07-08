@@ -10,11 +10,9 @@
 # verify the status of all photos
 #       (update isMissing for photos that are offline)
 
-#TODO: captions, titles, version name if different from original file name
 #TODO: use tqdm
 #TODO: children_of should store sets not lists for performance reasons
 #TODO: UNIT TESTS
-#TODO: switch to a "Version-centric" model of exporting
 
 import sys
 import os
@@ -110,7 +108,8 @@ parent_of = {}
 global location_of
 location_of = {}
 #
-# uuid (version) --> uuid(s) of originals (set) TODO make this a tuple?
+# uuid (version) --> uuid(s) of originals (set)
+# todo: better as a tuple?
 global all_masters_of
 all_masters_of = {}
 #
@@ -400,29 +399,13 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
     basename_of[uuid] = name #version name
 
     master_of[uuid] = master
-    master_set = {nonraw, raw} #TODO: tuple?
+    master_set = {nonraw, raw}
     if None in master_set:
         master_set.remove(None)
     all_masters_of[uuid] = master_set
 
     if len(master_set) > 1:
         raise Exception("Broken assumtion: more than one master")
-
-    if adjusted == 1:
-        adjusted_photos.add(uuid)
-        if upToDate != True:
-            raise Exception("Preview not up to date!")
-        location_of[uuid] = previewPath
-        extension_of[uuid] = ".jpg"
-        name_of[uuid] = name + extension_of[uuid]
-        #TODO: where should the version be added in the hierarchy
-        children_of[parent_of[master]].append(uuid)
-    else:
-        extension_of[uuid] = extension_of[master]
-        name_of[uuid] = name + extension_of[uuid]
-        location_of[uuid] = location_of[master]
-        #TODO: where should the version be added in the hierarchy
-        children_of[parent_of[master]].append(uuid)
 
     if hasKeywords == 1:
         addMetadata(uuid, "keywords", keywords)
@@ -435,6 +418,45 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
 
     if title != None:
         addMetadata(uuid, "title", title)
+
+    if name != basename_of[master]:
+        version_name_differs = True
+        print("name is different from master")
+        print("master:", basename_of[master])
+        print("version:", name)
+    else:
+        print("version name is same as master")
+        version_name_differs = False
+
+    if adjusted == 1:
+        adjusted_photos.add(uuid)
+        if upToDate != True:
+            raise Exception("Preview not up to date!")
+        location_of[uuid] = previewPath
+        basename_of[uuid] += " adjusted"
+        extension_of[uuid] = ".jpg"
+        name_of[uuid] = basename_of[uuid] + extension_of[uuid]
+        children_of[parent_of[master]].append(uuid)
+    else:
+        extension_of[uuid] = extension_of[master]
+        name_of[uuid] = name + extension_of[uuid]
+        location_of[uuid] = location_of[master]
+        if version_name_differs or (uuid in metadata):
+            if versionNum == 1:
+                if version_name_differs:
+                    #combine version and original file name
+                    if basename_of[master] in name:
+                        basename_of[master] = name
+                    else:
+                        basename_of[master] += " -- " + name
+                if uuid in metadata:
+                    metadata[master] = metadata[uuid]
+            else:
+                children_of[parent_of[master]].append(uuid)
+        else:
+            #nothing to export except originals
+            pass
+
 
 vprint("done.")
 
