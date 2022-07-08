@@ -13,6 +13,7 @@
 #TODO: use tqdm
 #TODO: children_of should store sets not lists for performance reasons
 #TODO: UNIT TESTS
+#TODO: make object oriented; lose global vars
 
 import sys
 import os
@@ -532,7 +533,6 @@ for uuid, albumType, subclass, name, parent in cur.execute(
                             except ValueError as e:
                                 pass
                     #if photo is adjusted, add it as a child of the album
-                    #TODO (this does not handle projects)
                     if vuuid in adjusted_photos:
                         children_of[uuid].append(vuuid)
         except RuntimeError as e:
