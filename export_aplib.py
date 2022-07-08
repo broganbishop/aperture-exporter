@@ -169,14 +169,14 @@ def writeMetadataXMP(uuid, path):
         keyword_string = ""
 
     if "caption" in metadata[uuid]:
-        caption_string = "<dc:description><rdf:Alt><rdf:li xml:lang='x-default'>"
+        caption_string = "\t<dc:description><rdf:Alt><rdf:li xml:lang='x-default'>"
         caption_string += metadata[uuid]["caption"]
         caption_string += "</rdf:li></rdf:Alt></dc:description>\n"
     else:
         caption_string = ""
 
     if "title" in metadata[uuid]:
-        title_string = "<dc:title><rdf:Alt><rdf:li xml:lang='x-default'>"
+        title_string = "\t<dc:title><rdf:Alt><rdf:li xml:lang='x-default'>"
         title_string += metadata[uuid]["title"]
         title_string += "</rdf:li></rdf:Alt></dc:title>\n"
     else:
@@ -311,7 +311,6 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
         raise Exception("No file extention!")
 
     if projectUuid not in children_of:
-        raise Exception("149")
         children_of[projectUuid] = []
 
     if isRef == 0:
@@ -425,7 +424,7 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
         print("master:", basename_of[master])
         print("version:", name)
     else:
-        print("version name is same as master")
+        #print("version name is same as master")
         version_name_differs = False
 
     if adjusted == 1:
@@ -447,6 +446,10 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
                     #combine version and original file name
                     if basename_of[master] in name:
                         basename_of[master] = name
+                    elif name in basename_of[master]:
+                        #version name contained in master
+                        #do nothing
+                        pass
                     else:
                         basename_of[master] += " -- " + name
                 if uuid in metadata:
