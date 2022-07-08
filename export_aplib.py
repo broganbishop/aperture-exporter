@@ -202,10 +202,22 @@ def writeMetadataXMP(uuid, path):
     "</rdf:Description>\n"
     "</rdf:RDF>\n</x:xmpmeta>\n<?xpacket end='w'?>\n")
 
+    h = None
     if path.exists():
-        raise Exception("XMP file exists!!")
+        with open(path, "r") as xmp_file:
+            h_file = xmp_file.read()
+        h = getSHA256(path)
+        #raise Exception("XMP file exists!!")
     with open(path, "w") as xmp_file:
         xmp_file.write(xmp_data)
+    if h != None:
+        g = getSHA256(path)
+        if h != g:
+            print(h_file)
+            print(xmp_data)
+            raise Exception("Overwrote xmp file; hash differs; see above output")
+
+
 
 
 ########################################################################
@@ -371,6 +383,7 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
 
     caption = None
     title = None
+    keywords = None
     if versionNum > 0:
         with open(version_file, 'rb') as f :
             parsed = bplist.parse(f.read())
@@ -403,11 +416,12 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
         master_set.remove(None)
     all_masters_of[uuid] = master_set
 
-    if len(master_set) > 1:
-        raise Exception("Broken assumtion: more than one master")
+    #if len(master_set) > 1:
+        #raise Exception("Broken assumtion: more than one master")
 
     if hasKeywords == 1:
-        addMetadata(uuid, "keywords", keywords)
+        if keywords != None:
+            addMetadata(uuid, "keywords", keywords)
 
     if mainRating != 0:
         addMetadata(uuid, "rating", mainRating)
