@@ -269,7 +269,6 @@ for uuid, parent, name, folderType in cur.execute(
         type_of[uuid] = type_folder
     elif folderType == 2:
         type_of[uuid] = type_project
-        children_of[uuid] = []
     elif folderType == 3: #Same as 1?
         type_of[uuid] = type_folder
     else:
@@ -294,6 +293,7 @@ vprint("Reading RKVolume...", end='', flush=True)
 for uuid, name in cur.execute('select uuid, name from RKVolume'):
     volume[uuid] = name
 vprint("done.")
+
 
 
 #RKMaster
@@ -479,7 +479,6 @@ vprint("done.")
 
         
 
-
 #From table RKAlbum
 #holds info on every album in the aplib (some are built in)
 vprint("Reading RKAlbum...", end='', flush=True)
@@ -491,12 +490,14 @@ for uuid, albumType, subclass, name, parent in cur.execute(
     if albumType == 1 and subclass == 3 and uuid != "lastImportAlbum":
         type_of[uuid] = type_album
         parent_of[uuid] = parent
+
         name_of[uuid] = name
         children_of[uuid] = []
         if parent not in children_of:
             children_of[parent] = []
         children_of[parent].append(uuid)
         albumFilePath = path_to_aplib / "Database/Albums" / (uuid + ".apalbum")
+
         try:
             with open(albumFilePath, "rb") as f:
                 parsed = bplist.parse(f.read())
@@ -604,7 +605,7 @@ def export(uuid, path):
 exclude_if_empty = ['TopLevelBooks', 'TopLevelAlbums', 'TopLevelKeepsakes', 'TopLevelSlideshows',
         'TopLevelWebProjects', 'TopLevelLightTables', 'PublishedProjects', 'TrashFolder']
 for uuid in exclude_if_empty:
-    if len(children_of[uuid]) == 0:
+    if uuid in children_of and len(children_of[uuid]) == 0:
         children_of[parent_of[uuid]].remove(uuid)
 
 root_uuid = "LibraryFolder"
