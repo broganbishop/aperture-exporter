@@ -43,7 +43,7 @@ EXPORT_ADJUSTED = True
 global DRY_RUN
 DRY_RUN = False
 global DIRECTORY_THRESHOLD
-DIRECTORY_THRESHOLD = 1000
+DIRECTORY_THRESHOLD = 3000
 
 global type_folder, type_project, type_album, type_original, type_version
 type_folder = 1
@@ -339,9 +339,9 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
         #truncated_hash = ("{sha256+" + sha256_of[uuid][:8] + "}")[::-1]
         location_of[uuid] = fullImagePath
         children_of[projectUuid].append(uuid)
-
     else:
         unavailable.add(uuid)
+        
 vprint("done.")
 
 
@@ -454,7 +454,8 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
     else:
         extension_of[uuid] = extension_of[master]
         name_of[uuid] = name + extension_of[uuid]
-        location_of[uuid] = location_of[master]
+        if master not in unavailable:
+            location_of[uuid] = location_of[master]
         if version_name_differs or (uuid in metadata):
             if versionNum == 1:
                 if version_name_differs:
@@ -549,7 +550,7 @@ vprint("done.")
 
 for uuid in children_of.keys():
     if len(children_of[uuid]) > DIRECTORY_THRESHOLD:
-        print(name_of[uuid] + ": " + len(children_of[uuid]))
+        print(name_of[uuid] + ": " + str(len(children_of[uuid])))
         raise Exception("Warning! Items exceed threshold.")
 
 vprint("Passed sanity checks.")
