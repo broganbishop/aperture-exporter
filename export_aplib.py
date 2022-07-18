@@ -542,7 +542,7 @@ for uuid, albumType, subclass, name, parent in cur.execute(
                     # if the ECLIPSE option is set, 
                     # remove items from the parental project
                     # if they exist there to prevent duplication
-                    if ECLIPSE == True and parent_project != None:
+                    if ECLIPSE == True and parent_project != None and vuuid in all_masters_of:
                         for item in [vuuid] + list(all_masters_of[vuuid]):
                             try:
                                 children_of[parent_project].remove(item)
