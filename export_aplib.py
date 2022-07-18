@@ -546,7 +546,7 @@ for uuid, albumType, subclass, name, parent in cur.execute(
                         for item in [vuuid] + list(all_masters_of[vuuid]):
                             try:
                                 children_of[parent_project].remove(item)
-                            except ValueError as e:
+                            except KeyError as e:
                                 pass
                     #if photo is adjusted, add it as a child of the album
                     if vuuid in adjusted_photos:
