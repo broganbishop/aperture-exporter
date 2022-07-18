@@ -249,6 +249,7 @@ for area, name, value in cur.execute(
         elif name == "previewSizeLimit":
             vprint("previewSizeLimit =", value)
         elif name == "previewQuality":
+            value = int(float(value) * 12) + 1
             vprint("previewQuality =", value)
 vprint("done.")
 
@@ -395,6 +396,9 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
             if adjusted:
                 previewPath = (path_to_aplib / "Previews"
                         / parsed["imageProxyState"]["fullSizePreviewPath"])
+            else:
+                previewPath = None #TODO?
+
             if hasKeywords == 1:
                 if ("iptcProperties" in parsed and "Keywords" in parsed["iptcProperties"]):
                     keywords = parsed["iptcProperties"]["Keywords"].split(",") #Strip whitespace?
@@ -435,12 +439,18 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
 
     if name != basename_of[master]:
         version_name_differs = True
-        print("name is different from master")
-        print("master:", basename_of[master])
-        print("version:", name)
+        #print("name is different from master")
+        #print("master:", basename_of[master])
+        #print("version:", name)
     else:
         #print("version name is same as master")
         version_name_differs = False
+
+    if uuid == "wBegJQ7QRZOkl5Tt1dsr2Q":
+        print(adjusted)
+        print(previewPath)
+        print(master)
+        print(location_of[master])
 
     if adjusted == 1:
         adjusted_photos.add(uuid)
@@ -456,6 +466,9 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
         name_of[uuid] = name + extension_of[uuid]
         if master not in unavailable:
             location_of[uuid] = location_of[master]
+        else:
+            print("master is unavailable")
+
         if version_name_differs or (uuid in metadata):
             if versionNum == 1:
                 if version_name_differs:
@@ -547,6 +560,12 @@ vprint("done.")
 ################################################
 # Pre-Export Sanity Checks
 ################################################
+
+for uuid in list(children_of.keys()):
+    if len(children_of[uuid]) == 0 and type_of[uuid] in [1,2,3]:
+        #prune empty directories
+        del children_of[uuid]
+        children_of[parent_of[uuid]].remove(uuid)
 
 for uuid in children_of.keys():
     if len(children_of[uuid]) > DIRECTORY_THRESHOLD:
