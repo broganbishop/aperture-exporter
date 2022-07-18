@@ -11,7 +11,6 @@
 #       (update isMissing for photos that are offline)
 
 #TODO: use tqdm
-#TODO: children_of should store sets not lists for performance reasons
 #TODO: UNIT TESTS
 #TODO: make object oriented; lose global vars
 
@@ -267,10 +266,10 @@ vprint("Reading RKFolder...", end="", flush=True)
 for uuid, parent, name, folderType in cur.execute(
         'select uuid, parentFolderUuid, name, folderType from RKFolder'):
     if uuid not in children_of:
-        children_of[uuid] = []
+        children_of[uuid] = set()
     if parent not in children_of:
-        children_of[parent] = []
-    children_of[parent].append(uuid)
+        children_of[parent] = set()
+    children_of[parent].add(uuid)
     name_of[uuid] = name
     parent_of[uuid] = parent
 
@@ -332,7 +331,7 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
         raise Exception("No file extention!")
 
     if projectUuid not in children_of:
-        children_of[projectUuid] = []
+        children_of[projectUuid] = set()
 
     if isRef == 0:
         fullImagePath = path_to_aplib / "Masters" / imagePath
@@ -346,7 +345,7 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
         #sha256_of[uuid] = getSHA256(fullImagePath)
         #truncated_hash = ("{sha256+" + sha256_of[uuid][:8] + "}")[::-1]
         location_of[uuid] = fullImagePath
-        children_of[projectUuid].append(uuid)
+        children_of[projectUuid].add(uuid)
     else:
         unavailable.add(uuid)
         
@@ -462,7 +461,7 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
         basename_of[uuid] += " adjusted"
         extension_of[uuid] = ".jpg"
         name_of[uuid] = basename_of[uuid] + extension_of[uuid]
-        children_of[parent_of[master]].append(uuid)
+        children_of[parent_of[master]].add(uuid)
     else:
         extension_of[uuid] = extension_of[master]
         name_of[uuid] = name + extension_of[uuid]
@@ -486,7 +485,7 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
                 if uuid in metadata:
                     metadata[master] = metadata[uuid]
             else:
-                children_of[parent_of[master]].append(uuid)
+                children_of[parent_of[master]].add(uuid)
         else:
             #nothing to export except originals
             pass
@@ -509,10 +508,10 @@ for uuid, albumType, subclass, name, parent in cur.execute(
         parent_of[uuid] = parent
 
         name_of[uuid] = name
-        children_of[uuid] = []
+        children_of[uuid] = set()
         if parent not in children_of:
-            children_of[parent] = []
-        children_of[parent].append(uuid)
+            children_of[parent] = set()
+        children_of[parent].add(uuid)
         albumFilePath = path_to_aplib / "Database/Albums" / (uuid + ".apalbum")
 
         try:
@@ -535,9 +534,10 @@ for uuid, albumType, subclass, name, parent in cur.execute(
 
                 #add the masters as children of the album
                 for vuuid in parsed["versionUuids"]:
-                    for master in all_masters_of[vuuid]:
-                        if master not in unavailable:
-                            children_of[uuid].append(master)
+                    if vuuid in all_masters_of:
+                        for master in all_masters_of[vuuid]:
+                            if master not in unavailable:
+                                children_of[uuid].add(master)
 
                     # if the ECLIPSE option is set, 
                     # remove items from the parental project
@@ -550,7 +550,7 @@ for uuid, albumType, subclass, name, parent in cur.execute(
                                 pass
                     #if photo is adjusted, add it as a child of the album
                     if vuuid in adjusted_photos:
-                        children_of[uuid].append(vuuid)
+                        children_of[uuid].add(vuuid)
         except RuntimeError as e:
             print("Unable to parse: " + str(albumFilePath) + " ("
                     + name_of[uuid] + ")")
@@ -604,7 +604,7 @@ def export(uuid, path):
             os.mkdir(path / name_of[uuid]) #create a directory
 
         #sort the children so that directories come first
-        for child in sorted(children_of[uuid], key=lambda c: type_of[c]):
+        for child in sorted(list(children_of[uuid]), key=lambda c: type_of[c]):
             export(child, path / name_of[uuid]) #recurse on each child
 
     elif type_of[uuid] == type_original or (type_of[uuid] == type_version 
