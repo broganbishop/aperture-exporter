@@ -580,7 +580,7 @@ vprint("Passed sanity checks.")
 
 vprint("There are " + str(len(metadata)) + " photos with metadata.")
 
-#input("Proceed?")
+input("Proceed?")
 
 ################################################
 # Export
