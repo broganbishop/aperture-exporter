@@ -253,13 +253,11 @@ for area, name, value in cur.execute(
         elif name == "previewSizeLimit":
             value = int(value)
             vprint("previewSizeLimit =", value)
-            if value != 1 and len(adjusted_photos) > 0:
-                raise Exception("Preview Size is too low")
+            previewSizeLimit = value
         elif name == "previewQuality":
-            value = float(value) * 12
+            value = round(float(value) * 12)
             vprint("previewQuality =", value)
-            if value < 9 and len(adjusted_photos) > 0:
-                raise Exception("Preview Quality is too low")
+            previewQuality = value
 vprint("done.")
 
 
@@ -579,6 +577,11 @@ for uuid in children_of.keys():
 vprint("Passed sanity checks.")
 
 vprint("There are " + str(len(metadata)) + " photos with metadata.")
+
+vprint("There are " + str(len(adjusted_photos)) + " adjusted photos")
+
+if len(adjusted_photos) > 0 and (previewQuality < 9 or previewSizeLimit != 1):
+    raise Exception("Adjusted Photos Present but suboptimal preview quality!")
 
 input("Proceed?")
 
