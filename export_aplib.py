@@ -44,6 +44,8 @@ global DRY_RUN
 DRY_RUN = False
 global DIRECTORY_THRESHOLD
 DIRECTORY_THRESHOLD = 3000
+global STRICT_PREVIEW_CHECK
+STRICT_PREVIEW_CHECK = True
 
 global type_folder, type_project, type_album, type_original, type_version
 type_folder = 1
@@ -73,9 +75,11 @@ if '--verbose' in args:
 if '--no-adjusted' in args:
     EXPORT_ADJUSTED = False
     args.remove("--no-adjusted")
+if '--no-strict-preview-check' in args:
+    STRICT_PREVIEW_CHECK = False
+    args.remove("--no-strict-preview-check")
 if len(args) != 2:
-    raise Exception(
-            "Invalid number of args! ([--options], aplib, export_location)")
+    raise Exception("Invalid number of args! ([--options], aplib, export_location)")
 path_to_aplib = Path(args[0])
 export_path = Path(args[1])
 
@@ -446,16 +450,11 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
         #print("version name is same as master")
         version_name_differs = False
 
-    if uuid == "wBegJQ7QRZOkl5Tt1dsr2Q":
-        print(adjusted)
-        print(previewPath)
-        print(master)
-        print(location_of[master])
+    if upToDate != True and STRICT_PREVIEW_CHECK == True:
+        raise Exception("Preview not up to date!")
 
-    if adjusted == 1:
+    if adjusted == 1 and upToDate == True:
         adjusted_photos.add(uuid)
-        if upToDate != True:
-            raise Exception("Preview not up to date!")
         location_of[uuid] = previewPath
         basename_of[uuid] += " adjusted"
         extension_of[uuid] = ".jpg"
@@ -616,9 +615,10 @@ def export(uuid, path):
         vprint(str(path / name_of[uuid]))
         if DRY_RUN == False:
             copy2(location_of[uuid], path / name_of[uuid])
-            if uuid in metadata:
-                vprint(path / (basename_of[uuid] + ".xmp"))
-                vprint(metadata[uuid])
+        if uuid in metadata:
+            vprint(path / (basename_of[uuid] + ".xmp"))
+            vprint(metadata[uuid])
+            if DRY_RUN == False:
                 writeMetadataXMP(uuid, path / (basename_of[uuid] + ".xmp"))
 
 #Exclude some junk
