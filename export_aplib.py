@@ -450,7 +450,7 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
         #print("version name is same as master")
         version_name_differs = False
 
-    if upToDate != True and STRICT_PREVIEW_CHECK == True:
+    if adjusted == 1 and upToDate != True and STRICT_PREVIEW_CHECK == True:
         raise Exception("Preview not up to date!")
 
     if adjusted == 1 and upToDate == True:
