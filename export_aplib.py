@@ -251,10 +251,15 @@ for area, name, value in cur.execute(
         if name == "databaseUuid":
             vprint("database uuid = ", value)
         elif name == "previewSizeLimit":
+            value = int(value)
             vprint("previewSizeLimit =", value)
+            if value != 1:
+                raise Exception("Preview Size is too low")
         elif name == "previewQuality":
             value = int(float(value) * 12) + 1
             vprint("previewQuality =", value)
+            if value < 9:
+                raise Exception("Preview Quality is too low")
 vprint("done.")
 
 
