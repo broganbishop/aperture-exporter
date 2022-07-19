@@ -619,6 +619,7 @@ def export(uuid, path):
         #don't overwrite files of the same name
         counter = 0
         basename = basename_of[uuid]
+        name_of[uuid] = basename + extension_of[uuid]
         while (path / name_of[uuid]).exists():
             counter += 1
             counter_str = " (" + str(counter) + ")"
