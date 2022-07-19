@@ -42,7 +42,7 @@ EXPORT_ADJUSTED = True
 global DRY_RUN
 DRY_RUN = False
 global DIRECTORY_THRESHOLD
-DIRECTORY_THRESHOLD = 3000
+DIRECTORY_THRESHOLD = 10000
 global STRICT_PREVIEW_CHECK
 STRICT_PREVIEW_CHECK = True
 
@@ -386,6 +386,8 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
         'select uuid, name, masterUuid, rawMasterUuid, nonRawMasterUuid, '
         'hasEnabledAdjustments, versionNumber, mainRating, hasKeywords '
         'from RKVersion'):
+    test1 = import_group[master]
+    test2 = import_group_path[test1]
     version_file = (import_group_path[import_group[master]] / master /
             ("Version-" + str(versionNum) + ".apversion"))
 
@@ -583,7 +585,7 @@ vprint("There are " + str(len(adjusted_photos)) + " adjusted photos")
 if len(adjusted_photos) > 0 and (previewQuality < 9 or previewSizeLimit != 1):
     raise Exception("Adjusted Photos Present but suboptimal preview quality!")
 
-input("Proceed?")
+#input("Proceed?")
 
 ################################################
 # Export
@@ -601,7 +603,10 @@ def export(uuid, path):
             #return
         vprint(str(path / name_of[uuid]))
         if DRY_RUN == False:
-            os.mkdir(path / name_of[uuid]) #create a directory
+            try:
+                os.mkdir(path / name_of[uuid]) #create a directory
+            except FileExistsError as e:
+                pass
 
         #sort the children so that directories come first
         for child in sorted(list(children_of[uuid]), key=lambda c: type_of[c]):
@@ -609,6 +614,7 @@ def export(uuid, path):
 
     elif type_of[uuid] == type_original or (type_of[uuid] == type_version 
             and EXPORT_ADJUSTED):
+        
 
         #don't overwrite files of the same name
         counter = 0
@@ -620,14 +626,20 @@ def export(uuid, path):
             name_of[uuid] = basename_of[uuid] + extension_of[uuid]
 
 
-        vprint(str(path / name_of[uuid]))
-        if DRY_RUN == False:
-            copy2(location_of[uuid], path / name_of[uuid])
-        if uuid in metadata:
-            vprint(path / (basename_of[uuid] + ".xmp"))
-            vprint(metadata[uuid])
+        if uuid in location_of:
+            vprint(str(path / name_of[uuid]))
             if DRY_RUN == False:
-                writeMetadataXMP(uuid, path / (basename_of[uuid] + ".xmp"))
+                copy2(location_of[uuid], path / name_of[uuid])
+            else:
+                test1 = location_of[uuid]
+                test2 = name_of[uuid]
+            if uuid in metadata:
+                vprint(path / (basename_of[uuid] + ".xmp"))
+                vprint(metadata[uuid])
+                if DRY_RUN == False:
+                    writeMetadataXMP(uuid, path / (basename_of[uuid] + ".xmp"))
+                else:
+                    test1 = basename_of[uuid]
 
 #Exclude some junk
 exclude_if_empty = ['TopLevelBooks', 'TopLevelAlbums', 'TopLevelKeepsakes', 'TopLevelSlideshows',
