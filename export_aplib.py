@@ -470,7 +470,9 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
         if master not in unavailable:
             location_of[uuid] = location_of[master]
         else:
-            print("master is unavailable")
+            #TODO: do something here?
+            #print("master is unavailable")
+            pass
 
         if version_name_differs or (uuid in metadata):
             if versionNum == 1:
