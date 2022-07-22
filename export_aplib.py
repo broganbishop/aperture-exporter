@@ -14,6 +14,8 @@
 #TODO: UNIT TESTS
 #TODO: make object oriented; lose global vars
 
+#TODO: remove bad characters from names
+
 import sys
 import os
 from pathlib import Path
@@ -270,6 +272,11 @@ for uuid, parent, name, folderType in cur.execute(
     if parent not in children_of:
         children_of[parent] = set()
     children_of[parent].add(uuid)
+    if "/" in name:
+        #TODO: problems with name mashing
+        name = name.replace("/", "-")
+    if ":" in name:
+        name = name.replace(":", "-")
     name_of[uuid] = name
     parent_of[uuid] = parent
 
