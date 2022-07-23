@@ -461,7 +461,9 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
         #print("version name is same as master")
         version_name_differs = False
 
-    if adjusted == 1 and upToDate != True and STRICT_PREVIEW_CHECK == True:
+    if adjusted == 1 and upToDate != True and STRICT_PREVIEW_CHECK == True and master not in unavailable:
+        print(basename_of[uuid])
+        print(uuid)
         raise Exception("Preview not up to date!")
 
     if adjusted == 1 and upToDate == True:
@@ -512,7 +514,11 @@ vprint("Reading RKAlbum...", end='', flush=True)
 for uuid, albumType, subclass, name, parent in cur.execute(
         'select uuid, albumType, albumSubclass, name, folderUuid from RKAlbum'):
     if albumType != 1:
-        raise Exception("Album type not 1")
+        print(albumType)
+        print(name)
+        print(uuid)
+        if albumType != 2:
+            raise Exception("Album type not 1")
     #these seem to be the only albums that are important
     if albumType == 1 and subclass == 3 and uuid != "lastImportAlbum":
         type_of[uuid] = type_album
