@@ -323,22 +323,6 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
         projectUuid = "TrashFolder"
     parent_of[uuid] = projectUuid
     import_group[uuid] = importGroupUuid
-    if origfname == None:
-        raise Exception("No original file name. REBUILD DATABASE!")
-
-    #split the file into basename and file extension
-    if "." in origfname:
-        ext,basename = origfname[::-1].split(".", 1)
-        ext,basename = ("." + ext[::-1]),basename[::-1]
-        basename_of[uuid] = basename
-        extension_of[uuid] = ext
-        name_of[uuid] = basename + ext
-    else:
-        print(origfname)
-        raise Exception("No file extention!")
-
-    if projectUuid not in children_of:
-        children_of[projectUuid] = set()
 
     if isRef == 0:
         fullImagePath = path_to_aplib / "Masters" / imagePath
@@ -355,6 +339,24 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
         children_of[projectUuid].add(uuid)
     else:
         unavailable.add(uuid)
+
+    if origfname == None and uuid not in unavailable:
+        raise Exception("No original file name. REBUILD DATABASE!")
+
+    #split the file into basename and file extension
+    if "." in origfname:
+        ext,basename = origfname[::-1].split(".", 1)
+        ext,basename = ("." + ext[::-1]),basename[::-1]
+        basename_of[uuid] = basename
+        extension_of[uuid] = ext
+        name_of[uuid] = basename + ext
+    else:
+        print(origfname)
+        raise Exception("No file extention!")
+
+    if projectUuid not in children_of:
+        children_of[projectUuid] = set()
+
         
 vprint("done.")
 
