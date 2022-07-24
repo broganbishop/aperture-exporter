@@ -389,9 +389,10 @@ def addMetadata(uuid, key, data):
 #information about versions (uuid of corresponding originals)
 vprint("Reading RKVersion...", end='', flush=True)
 for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
-        hasKeywords in cur.execute(
+        hasKeywords, masterHeight, masterWidth in cur.execute(
         'select uuid, name, masterUuid, rawMasterUuid, nonRawMasterUuid, '
-        'hasEnabledAdjustments, versionNumber, mainRating, hasKeywords '
+        'hasEnabledAdjustments, versionNumber, mainRating, hasKeywords, '
+        'masterHeight, masterWidth '
         'from RKVersion'):
     test1 = import_group[master]
     test2 = import_group_path[test1]
@@ -401,6 +402,8 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
     caption = None
     title = None
     keywords = None
+    previewJpegHeight = None
+    previewJpegWidth = None
     if versionNum > 0:
         with open(version_file, 'rb') as f :
             parsed = bplist.parse(f.read())
@@ -411,6 +414,8 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
             if adjusted:
                 previewPath = (path_to_aplib / "Previews"
                         / parsed["imageProxyState"]["fullSizePreviewPath"])
+                previewJpegHeight = parsed["imageProxyState"]["previewJpegHeight"]
+                previewJpegWidth = parsed["imageProxyState"]["previewJpegWidth"]
             else:
                 previewPath = None #TODO?
 
@@ -467,6 +472,8 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
         raise Exception("Preview not up to date!")
 
     if adjusted == 1 and upToDate == True:
+        if previewJpegHeight * previewJpegWidth < masterHeight * masterWidth:
+            raise Exception("Preview is not full size")
         adjusted_photos.add(uuid)
         location_of[uuid] = previewPath
         basename_of[uuid] += " adjusted"
