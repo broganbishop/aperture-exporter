@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-find $1 -name "*.aplibrary" -print -exec python3 ./export_aplib.py --dry-run {} ~ \; -exec echo "" \; -exec echo "" \; -prune
+find $1 -name "*.aplibrary" -exec echo \; -exec echo \; -print -exec python3 ./export_aplib.py --dry-run {} ~ \;  -prune
