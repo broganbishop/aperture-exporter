@@ -474,8 +474,9 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
         raise Exception("Preview not up to date!")
 
     if adjusted == 1 and upToDate == True:
-        if previewJpegHeight * previewJpegWidth < masterHeight * masterWidth:
-            raise Exception("Preview is not full size")
+        if master not in unavailable:
+            if previewJpegHeight * previewJpegWidth * 4 == masterHeight * masterWidth:
+                raise Exception("Preview is half size")
         adjusted_photos.add(uuid)
         location_of[uuid] = previewPath
         basename_of[uuid] += " adjusted"
