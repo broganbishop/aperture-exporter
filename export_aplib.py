@@ -324,6 +324,12 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
     parent_of[uuid] = projectUuid
     import_group[uuid] = importGroupUuid
 
+    if imagePath == None:
+        unavailable.add(uuid)
+        basename[uuid] = None
+
+        continue
+
     if isRef == 0:
         fullImagePath = path_to_aplib / "Masters" / imagePath
     elif isRef == 1:
@@ -354,8 +360,6 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
         print(origfname)
         raise Exception("No file extention!")
 
-    if projectUuid not in children_of:
-        children_of[projectUuid] = set()
 
         
 vprint("done.")
