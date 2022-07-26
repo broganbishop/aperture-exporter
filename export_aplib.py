@@ -326,7 +326,7 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
 
     if imagePath == None:
         unavailable.add(uuid)
-        basename[uuid] = None
+        basename_of[uuid] = None
         continue
 
     if isRef == 0:
