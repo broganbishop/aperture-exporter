@@ -327,6 +327,7 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
     if imagePath == None:
         unavailable.add(uuid)
         basename_of[uuid] = None
+        extension_of[uuid] = None
         continue
 
     if isRef == 0:
@@ -486,15 +487,10 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
         extension_of[uuid] = ".jpg"
         name_of[uuid] = basename_of[uuid] + extension_of[uuid]
         children_of[parent_of[master]].add(uuid)
-    else:
+    elif master not in unavailable:
         extension_of[uuid] = extension_of[master]
         name_of[uuid] = name + extension_of[uuid]
-        if master not in unavailable:
-            location_of[uuid] = location_of[master]
-        else:
-            #TODO: do something here?
-            #print("master is unavailable")
-            pass
+        location_of[uuid] = location_of[master]
 
         if version_name_differs or (uuid in metadata):
             if versionNum == 1:
