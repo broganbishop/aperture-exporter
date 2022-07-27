@@ -411,8 +411,16 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
     previewJpegHeight = None
     previewJpegWidth = None
     if versionNum > 0:
+        if not version_file.exists():
+            print("Version File does not exist: " + version_file)
+            continue
         with open(version_file, 'rb') as f :
-            parsed = bplist.parse(f.read())
+            try:
+                parsed = bplist.parse(f.read())
+            except RuntimeError as e:
+                print('Error reading bplist')
+                print(e)
+                continue
             if "imageProxyState" in parsed:
                 upToDate = parsed["imageProxyState"]["fullSizePreviewUpToDate"]
             else:
