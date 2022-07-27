@@ -420,6 +420,7 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
             except RuntimeError as e:
                 print('Error reading bplist')
                 print(e)
+                print(version_file)
                 continue
             if "imageProxyState" in parsed:
                 upToDate = parsed["imageProxyState"]["fullSizePreviewUpToDate"]
@@ -530,12 +531,11 @@ vprint("done.")
 vprint("Reading RKAlbum...", end='', flush=True)
 for uuid, albumType, subclass, name, parent in cur.execute(
         'select uuid, albumType, albumSubclass, name, folderUuid from RKAlbum'):
-    if albumType != 1:
+    if albumType not in [1, 2, 8]:
         print(albumType)
         print(name)
         print(uuid)
-        if albumType != 2:
-            raise Exception("Album type not 1")
+        raise Exception("Album type not 1")
     #these seem to be the only albums that are important
     if albumType == 1 and subclass == 3 and uuid != "lastImportAlbum":
         type_of[uuid] = type_album
