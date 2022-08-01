@@ -418,22 +418,23 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
 
         read_successfully = False
 
-        with open(version_file, 'rb') as f :
-            try:
-                parsed = bplist.parse(f.read())
-                read_successsfully = True
+        if False:
+            with open(version_file, 'rb') as f :
+                try:
+                    parsed = bplist.parse(f.read())
+                    read_successsfully = True
 
-            except RuntimeError as e:
-                #print('Error reading bplist')
-                #print(e)
-                #print(version_file)
-                pass
+                except RuntimeError as e:
+                    #print('Error reading bplist')
+                    #print(e)
+                    #print(version_file)
+                    pass
 
         if not read_successfully:
             with open(version_file, 'rb') as f:
                 try:
                     parsed = plistlib.load(f)
-                    print(parsed)
+                    #print(parsed)
                 except Exception as e:
                     print(version_file)
                     raise Exception("File is not (b)plist")
