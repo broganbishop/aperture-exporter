@@ -418,41 +418,47 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
         with open(version_file, 'rb') as f :
             try:
                 parsed = bplist.parse(f.read())
+                if "imageProxyState" in parsed:
+                    upToDate = parsed["imageProxyState"]["fullSizePreviewUpToDate"]
+                else:
+                    raise Exception("No imageProxyState! GENERATE PREVIEWS")
+                if adjusted:
+                    previewPath = (path_to_aplib / "Previews"
+                            / parsed["imageProxyState"]["fullSizePreviewPath"])
+                    previewJpegHeight = parsed["imageProxyState"]["previewJpegHeight"]
+                    previewJpegWidth = parsed["imageProxyState"]["previewJpegWidth"]
+                else:
+                    previewPath = None #TODO?
+
+                if hasKeywords == 1:
+                    if ("iptcProperties" in parsed and "Keywords" in parsed["iptcProperties"]):
+                        keywords = parsed["iptcProperties"]["Keywords"].split(",") #Strip whitespace?
+                    elif "keywords" in parsed:
+                        keywords = parsed["keywords"]
+                    else:
+                        raise Exception("No keywords??")
+                if "iptcProperties" in parsed:
+                    if "Caption/Abstract" in parsed["iptcProperties"]:
+                        caption = parsed["iptcProperties"]["Caption/Abstract"]
+                    if "ObjectName" in parsed["iptcProperties"]:
+                        title = parsed["iptcProperties"]["ObjectName"]
+
             except RuntimeError as e:
-                #print('Error reading bplist')
-                #print(e)
-                #print(version_file)
+                print('Error reading bplist')
+                print(e)
+                print(version_file)
+                pass
+
+            with open(version_file, 'rb') as f:
                 try:
                     parsed = plistlib.load(f)
                     print(parsed)
+                    raise Exception("Successfully read plist")
                 except Exception as e:
                     print("Failed to read plist")
+                    print(version_file)
                     raise e
 
-            if "imageProxyState" in parsed:
-                upToDate = parsed["imageProxyState"]["fullSizePreviewUpToDate"]
-            else:
-                raise Exception("No imageProxyState! GENERATE PREVIEWS")
-            if adjusted:
-                previewPath = (path_to_aplib / "Previews"
-                        / parsed["imageProxyState"]["fullSizePreviewPath"])
-                previewJpegHeight = parsed["imageProxyState"]["previewJpegHeight"]
-                previewJpegWidth = parsed["imageProxyState"]["previewJpegWidth"]
-            else:
-                previewPath = None #TODO?
-
-            if hasKeywords == 1:
-                if ("iptcProperties" in parsed and "Keywords" in parsed["iptcProperties"]):
-                    keywords = parsed["iptcProperties"]["Keywords"].split(",") #Strip whitespace?
-                elif "keywords" in parsed:
-                    keywords = parsed["keywords"]
-                else:
-                    raise Exception("No keywords??")
-            if "iptcProperties" in parsed:
-                if "Caption/Abstract" in parsed["iptcProperties"]:
-                    caption = parsed["iptcProperties"]["Caption/Abstract"]
-                if "ObjectName" in parsed["iptcProperties"]:
-                    title = parsed["iptcProperties"]["ObjectName"]
 
     type_of[uuid] = type_version
     basename_of[uuid] = name #version name
