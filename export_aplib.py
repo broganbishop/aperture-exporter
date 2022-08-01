@@ -26,6 +26,7 @@ from bpylist import bplist
 import hashlib
 import plistlib
 from datetime import datetime
+import plistlib
 
 global VERBOSE
 VERBOSE = False
@@ -418,10 +419,16 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
             try:
                 parsed = bplist.parse(f.read())
             except RuntimeError as e:
-                print('Error reading bplist')
-                print(e)
-                print(version_file)
-                continue
+                #print('Error reading bplist')
+                #print(e)
+                #print(version_file)
+                try:
+                    parsed = load(f)
+                    print(parsed)
+                except Exception as e:
+                    print("Failed to read plist")
+                    raise e
+
             if "imageProxyState" in parsed:
                 upToDate = parsed["imageProxyState"]["fullSizePreviewUpToDate"]
             else:
