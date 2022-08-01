@@ -22,11 +22,10 @@ from pathlib import Path
 #from tqdm import tqdm
 import sqlite3
 from shutil import copy2
-from bpylist import bplist
+#from bpylist import bplist
 import hashlib
 import plistlib
 from datetime import datetime
-import plistlib
 
 global VERBOSE
 VERBOSE = False
@@ -416,28 +415,13 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
             print("Version File does not exist: " + version_file)
             continue
 
-        read_successfully = False
-
-        if False:
-            with open(version_file, 'rb') as f :
-                try:
-                    parsed = bplist.parse(f.read())
-                    read_successsfully = True
-
-                except RuntimeError as e:
-                    #print('Error reading bplist')
-                    #print(e)
-                    #print(version_file)
-                    pass
-
-        if not read_successfully:
-            with open(version_file, 'rb') as f:
-                try:
-                    parsed = plistlib.load(f)
-                    #print(parsed)
-                except Exception as e:
-                    print(version_file)
-                    raise Exception("File is not (b)plist")
+        with open(version_file, 'rb') as f:
+            try:
+                parsed = plistlib.load(f)
+                #print(parsed)
+            except Exception as e:
+                print(version_file)
+                raise Exception("File is not (b)plist")
 
         if "imageProxyState" in parsed:
             upToDate = parsed["imageProxyState"]["fullSizePreviewUpToDate"]
@@ -567,7 +551,8 @@ for uuid, albumType, subclass, name, parent in cur.execute(
 
         try:
             with open(albumFilePath, "rb") as f:
-                parsed = bplist.parse(f.read())
+                #parsed = bplist.parse(f.read())
+                parsed = plistlib.load(f)
 
                 #determine parent project if any
                 parent_project = None
