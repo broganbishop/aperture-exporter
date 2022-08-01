@@ -423,7 +423,7 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
                 #print(e)
                 #print(version_file)
                 try:
-                    parsed = load(f)
+                    parsed = plistlib.load(f)
                     print(parsed)
                 except Exception as e:
                     print("Failed to read plist")
