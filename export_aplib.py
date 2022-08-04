@@ -532,65 +532,74 @@ vprint("done.")
 vprint("Reading RKAlbum...", end='', flush=True)
 for uuid, albumType, subclass, name, parent in cur.execute(
         'select uuid, albumType, albumSubclass, name, folderUuid from RKAlbum'):
-    if albumType not in [1, 2, 8]:
+    if albumType == 2:
+        pass
+    elif albumType == 5:
+        #LIGHT TABLE
+        pass
+    elif albumType == 8:
+        pass
+    #these seem to be the only albums that are important
+    elif albumType == 1:
+        if subclass == 3 and uuid != "lastImportAlbum":
+            type_of[uuid] = type_album
+            parent_of[uuid] = parent
+
+            name_of[uuid] = name
+            children_of[uuid] = set()
+            if parent not in children_of:
+                children_of[parent] = set()
+            children_of[parent].add(uuid)
+            albumFilePath = path_to_aplib / "Database/Albums" / (uuid + ".apalbum")
+
+            try:
+                with open(albumFilePath, "rb") as f:
+                    #parsed = bplist.parse(f.read())
+                    parsed = plistlib.load(f)
+
+                    #determine parent project if any
+                    parent_project = None
+                    if ECLIPSE == True:
+                        current_uuid = uuid
+                        while type_of[current_uuid] != type_project:
+                            current_uuid = parent_of[current_uuid]
+                            if current_uuid not in type_of:
+                                break
+                            elif type_of[current_uuid] == type_project:
+                                parent_project = current_uuid
+                                break
+                            elif current_uuid == "AllProjectsItem":
+                                break
+
+                    #add the masters as children of the album
+                    for vuuid in parsed["versionUuids"]:
+                        if vuuid in all_masters_of:
+                            for master in all_masters_of[vuuid]:
+                                if master not in unavailable:
+                                    children_of[uuid].add(master)
+
+                        # if the ECLIPSE option is set, 
+                        # remove items from the parental project
+                        # if they exist there to prevent duplication
+                        if ECLIPSE == True and parent_project != None and vuuid in all_masters_of:
+                            for item in [vuuid] + list(all_masters_of[vuuid]):
+                                try:
+                                    children_of[parent_project].remove(item)
+                                except KeyError as e:
+                                    pass
+                        #if photo is adjusted, add it as a child of the album
+                        if vuuid in adjusted_photos:
+                            children_of[uuid].add(vuuid)
+            except RuntimeError as e:
+                print("Unable to parse: " + str(albumFilePath) + " ("
+                        + name_of[uuid] + ")")
+                raise e
+
+    else:
         print(albumType)
         print(name)
         print(uuid)
-        raise Exception("Album type not 1")
-    #these seem to be the only albums that are important
-    if albumType == 1 and subclass == 3 and uuid != "lastImportAlbum":
-        type_of[uuid] = type_album
-        parent_of[uuid] = parent
-
-        name_of[uuid] = name
-        children_of[uuid] = set()
-        if parent not in children_of:
-            children_of[parent] = set()
-        children_of[parent].add(uuid)
-        albumFilePath = path_to_aplib / "Database/Albums" / (uuid + ".apalbum")
-
-        try:
-            with open(albumFilePath, "rb") as f:
-                #parsed = bplist.parse(f.read())
-                parsed = plistlib.load(f)
-
-                #determine parent project if any
-                parent_project = None
-                if ECLIPSE == True:
-                    current_uuid = uuid
-                    while type_of[current_uuid] != type_project:
-                        current_uuid = parent_of[current_uuid]
-                        if current_uuid not in type_of:
-                            break
-                        elif type_of[current_uuid] == type_project:
-                            parent_project = current_uuid
-                            break
-                        elif current_uuid == "AllProjectsItem":
-                            break
-
-                #add the masters as children of the album
-                for vuuid in parsed["versionUuids"]:
-                    if vuuid in all_masters_of:
-                        for master in all_masters_of[vuuid]:
-                            if master not in unavailable:
-                                children_of[uuid].add(master)
-
-                    # if the ECLIPSE option is set, 
-                    # remove items from the parental project
-                    # if they exist there to prevent duplication
-                    if ECLIPSE == True and parent_project != None and vuuid in all_masters_of:
-                        for item in [vuuid] + list(all_masters_of[vuuid]):
-                            try:
-                                children_of[parent_project].remove(item)
-                            except KeyError as e:
-                                pass
-                    #if photo is adjusted, add it as a child of the album
-                    if vuuid in adjusted_photos:
-                        children_of[uuid].add(vuuid)
-        except RuntimeError as e:
-            print("Unable to parse: " + str(albumFilePath) + " ("
-                    + name_of[uuid] + ")")
-            raise e
+        raise Exception("Unknown Album Type")
 
 vprint("done.")
 
