@@ -349,6 +349,10 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
     if origfname == None and uuid not in unavailable:
         raise Exception("No original file name. REBUILD DATABASE!")
 
+    if origfname == None:
+        print(imagePath)
+        print(uuid)
+
     #split the file into basename and file extension
     if "." in origfname:
         ext,basename = origfname[::-1].split(".", 1)
