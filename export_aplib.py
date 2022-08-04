@@ -412,7 +412,7 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
     previewJpegWidth = None
     if versionNum > 0:
         if not version_file.exists():
-            print("Version File does not exist: " + version_file)
+            print("Version File does not exist: " + str(version_file))
             continue
 
         with open(version_file, 'rb') as f:
