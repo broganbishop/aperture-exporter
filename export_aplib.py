@@ -350,6 +350,8 @@ for uuid, origfname, imagePath, projectUuid, importGroupUuid, isMissing, \
         raise Exception("No original file name. REBUILD DATABASE!")
 
     if origfname == None and uuid in unavailable:
+        basename_of[uuid] = None
+        extension_of[uuid] = None
         continue
 
     #split the file into basename and file extension
