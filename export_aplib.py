@@ -44,7 +44,7 @@ EXPORT_ADJUSTED = True
 global DRY_RUN
 DRY_RUN = False
 global DIRECTORY_THRESHOLD
-DIRECTORY_THRESHOLD = 10000
+DIRECTORY_THRESHOLD = 20000
 global STRICT_PREVIEW_CHECK
 STRICT_PREVIEW_CHECK = True
 
@@ -435,6 +435,8 @@ for uuid, name, master, raw, nonraw, adjusted, versionNum, mainRating,\
         if adjusted:
             previewPath = (path_to_aplib / "Previews"
                     / parsed["imageProxyState"]["fullSizePreviewPath"])
+            if not previewPath.exists():
+                raise Exception("preview does not exist at recorded path")
             previewJpegHeight = parsed["imageProxyState"]["previewJpegHeight"]
             previewJpegWidth = parsed["imageProxyState"]["previewJpegWidth"]
         else:
