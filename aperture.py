@@ -345,7 +345,7 @@ class Aplib():
                 #print("version name is same as master")
                 version_name_differs = False
 
-            if adjusted == 1 and upToDate != True and STRICT_PREVIEW_CHECK == True and master not in self.unavailable:
+            if adjusted == 1 and upToDate != True and settings.options["STRICT_PREVIEW_CHECK"] and master not in self.unavailable:
                 print(self.basename_of[uuid])
                 print(uuid)
                 raise Exception("Preview not up to date!")
