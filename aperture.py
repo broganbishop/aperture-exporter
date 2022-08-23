@@ -7,6 +7,7 @@ from pathlib import Path
 from shutil import copy2
 from datetime import datetime
 from utils import getSHA256
+from utils import AlreadyExportedException
 
 def vprint(*args, **kwargs):
     if settings.options["VERBOSE"]:
@@ -91,7 +92,7 @@ class Aplib():
         for _,dirs,_ in os.walk(self.export_path):
             for d in dirs:
                 if (self.path_to_aplib.name + " xptd ") in d:
-                    raise Exception("Already Exported?")
+                    raise AlreadyExportedException()
             break
 
     def readInfoPlist(self):

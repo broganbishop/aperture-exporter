@@ -26,6 +26,7 @@ import settings
 settings.init()
 
 from utils import getSHA256
+from utils import AlreadyExportedException
 
 settings.options["VERBOSE"] = False
 settings.options["EXPORT_ALBUMS"] = True
@@ -88,6 +89,8 @@ for lib in aplibs:
         #Create Aperture Library Object
         ap = Aplib(lib_path, mod_xprt_path)
         ap.export()
+    except AlreadyExportedException as e:
+        pass
     except Exception as e:
         print("Exception1!")
         print(lib_path)

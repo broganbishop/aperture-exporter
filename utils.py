@@ -8,3 +8,6 @@ def getSHA256(filepath):
             sha256_hash.update(byte_block)
     hash_str = sha256_hash.hexdigest()
     return hash_str
+
+class AlreadyExportedException(Exception):
+    pass
