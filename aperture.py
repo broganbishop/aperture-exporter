@@ -6,6 +6,7 @@ import settings
 from pathlib import Path
 from shutil import copy2
 from datetime import datetime
+from utils import getSHA256
 
 def vprint(*args, **kwargs):
     if settings.options["VERBOSE"]:
