@@ -69,15 +69,20 @@ export_path = Path(args[1])
 
 pattern = re.compile(".*\.aplibrary$")
 aplibs = []
-for dirpath, dirnames, filenames in os.walk(path_to_aplib):
-    to_remove = []
-    for d in dirnames:
-        match = pattern.fullmatch(d)
-        if pattern.fullmatch(d) != None:
-            aplibs.append((dirpath, d))#tuple
-            to_remove.append(d)
-    for d in to_remove:
-        dirnames.remove(d)
+
+if pattern.fullmatch(path_to_aplib.name) != None:
+    aplibs.append((path_to_aplib.parent, path_to_aplib.name))
+    path_to_aplib = path_to_aplib.parent 
+else:
+    for dirpath, dirnames, filenames in os.walk(path_to_aplib):
+        to_remove = []
+        for d in dirnames:
+            match = pattern.fullmatch(d)
+            if pattern.fullmatch(d) != None:
+                aplibs.append((dirpath, d))#tuple
+                to_remove.append(d)
+        for d in to_remove:
+            dirnames.remove(d)
 
 for lib in aplibs:
     lib_path = Path(lib[0]) / lib[1]
