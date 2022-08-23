@@ -69,6 +69,7 @@ class Aplib():
 
 
         self.checkAplibExists()
+        self.checkExportDoesNotExist()
         self.readInfoPlist()
 
         self.connectToAPDB()
@@ -84,6 +85,14 @@ class Aplib():
     def checkAplibExists(self):
         if not self.path_to_aplib.exists():
             raise Exception("Aplibrary does not exist")
+
+    def checkExportDoesNotExist(self):
+        already_exported = False
+        for _,dirs,_ in os.walk(self.export_path):
+            for d in dirs:
+                if (self.path_to_aplib.name + " xptd ") in d:
+                    raise Exception("Already Exported?")
+            break
 
     def readInfoPlist(self):
         with open(self.path_to_aplib / "Info.plist", "rb") as info_plist:
@@ -580,6 +589,7 @@ class Aplib():
                 if (self.path_to_aplib.name + " xptd ") in d:
                     already_exported = True
                     break
+            break
 
 
         if not already_exported:
