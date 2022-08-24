@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import plistlib
 import sqlite3
 import settings
@@ -88,10 +89,11 @@ class Aplib():
             raise Exception("Aplibrary does not exist")
 
     def checkExportDoesNotExist(self):
+        pattern = re.compile("^.*\.aplibrary xptd [0-9]*$")
         already_exported = False
         for _,dirs,_ in os.walk(self.export_path):
             for d in dirs:
-                if (self.path_to_aplib.name + " xptd ") in d:
+                if pattern.fullmatch(d) != None:
                     raise AlreadyExportedException()
             break
 
@@ -584,33 +586,23 @@ class Aplib():
         self.name_of["TopLevelAlbums"] = "Albums"
 
 
-        already_exported = False
-        for _,dirs,_ in os.walk(self.export_path):
-            for d in dirs:
-                if (self.path_to_aplib.name + " xptd ") in d:
-                    already_exported = True
-                    break
-            break
+        self.checkExportDoesNotExist()#a second time?
 
+        #create temporary file
+        tmp_file = Path(self.export_path) / (self.name_of[root_uuid] + ".inprogress")
+        with open(tmp_file, "w") as f:
+            f.write("")
 
-        if not already_exported:
-            #create temporary file
-            tmp_file = Path(self.export_path) / (self.name_of[root_uuid] + ".inprogress")
-            with open(tmp_file, "w") as f:
-                f.write("")
+        try:
+            #Do the export
+            self.recursiveExport(root_uuid, self.export_path)
+            #delete temporary file when finished
+            os.remove(tmp_file)
 
-            try:
-                #Do the export
-                self.recursiveExport(root_uuid, self.export_path)
-                #delete temporary file when finished
-                os.remove(tmp_file)
-
-            except Exception as e:
-                print("Exception!")
-                print(self.path_to_aplib)
-                print(e)
-        else:
-            print("Already exported")
+        except Exception as e:
+            print("Exception!")
+            print(self.path_to_aplib)
+            print(e)
 
         
 
