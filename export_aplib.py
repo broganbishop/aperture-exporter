@@ -33,7 +33,7 @@ settings.options["EXPORT_ALBUMS"] = True
 settings.options["ECLIPSE"] = True
 settings.options["EXPORT_ADJUSTED"] = True
 settings.options["DRY_RUN"] = False
-settings.options["DIRECTORY_THRESHOLD"] = 20000
+settings.options["DIRECTORY_THRESHOLD"] = 200000
 settings.options["STRICT_PREVIEW_CHECK"] = True
 
 
