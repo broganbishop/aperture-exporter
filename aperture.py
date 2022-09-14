@@ -228,15 +228,17 @@ class Aplib():
                 continue
 
             #split the file into basename and file extension
-            if "." in origfname:
+            if "." not in origfname:
+                origfname += ".jpg"
+            else:
                 ext,basename = origfname[::-1].split(".", 1)
                 ext,basename = ("." + ext[::-1]),basename[::-1]
                 self.basename_of[uuid] = basename
                 self.extension_of[uuid] = ext
                 self.name_of[uuid] = basename + ext
-            else:
-                print(origfname)
-                raise Exception("No file extention!")
+            #else:
+                #print(origfname)
+                #raise Exception("No file extention!")
 
 
                 
