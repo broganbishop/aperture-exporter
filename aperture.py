@@ -422,8 +422,9 @@ class Aplib():
                 'select uuid, albumType, albumSubclass, name, folderUuid from RKAlbum'):
             if albumType == 2:
                 pass
-            elif albumType == 5:
-                #LIGHT TABLE
+            elif albumType == 3: #Web Gallery
+                pass
+            elif albumType == 5: #Light Table
                 pass
             elif albumType == 8:
                 pass
