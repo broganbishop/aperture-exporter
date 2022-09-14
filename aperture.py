@@ -310,7 +310,12 @@ class Aplib():
                     previewPath = (self.path_to_aplib / "Previews"
                             / parsed["imageProxyState"]["fullSizePreviewPath"])
                     if not previewPath.exists():
-                        raise Exception("preview does not exist at recorded path")
+                        if master not in self.unavailable:
+                            raise Exception("preview does not exist at recorded path")
+                        else:
+                            #TODO: correct action?
+                            pass
+
                     previewJpegHeight = parsed["imageProxyState"]["previewJpegHeight"]
                     previewJpegWidth = parsed["imageProxyState"]["previewJpegWidth"]
                 else:
