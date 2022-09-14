@@ -93,7 +93,7 @@ class Aplib():
         already_exported = False
         for _,dirs,_ in os.walk(self.export_path):
             for d in dirs:
-                if pattern.fullmatch(d) != None:
+                if pattern.fullmatch(d) != None and self.path_to_aplib.name in d: #TODO: this has holes
                     raise AlreadyExportedException()
             break
 
