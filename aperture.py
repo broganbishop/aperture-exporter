@@ -425,6 +425,8 @@ class Aplib():
                 pass
             elif albumType == 8:
                 pass
+            elif albumType == 49:
+                pass
             #these seem to be the only albums that are important
             elif albumType == 1:
                 if subclass == 3 and uuid != "lastImportAlbum":
