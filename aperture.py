@@ -207,10 +207,9 @@ class Aplib():
                     #TODO:Why would vol_uuid not be in self.volume?
                     #is this the proper action?
                     fullImagePath = None
-                    self.unavailable.add(uuid)
 
             #If the file is present, then add it to be exported
-            if fullImagePath.exists() and fullImagePath.is_file():
+            if fullImagePath != None and fullImagePath.exists() and fullImagePath.is_file():
                 if isMissing == 1:
                     raise Exception("File 'Missing' but exists!")
                 #sha256_of[uuid] = getSHA256(fullImagePath)
