@@ -206,8 +206,8 @@ class Aplib():
                 else:
                     #TODO:Why would vol_uuid not be in self.volume?
                     #is this the proper action?
+                    fullImagePath = None
                     self.unavailable.add(uuid)
-                    continue
 
             #If the file is present, then add it to be exported
             if fullImagePath.exists() and fullImagePath.is_file():
