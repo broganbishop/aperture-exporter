@@ -201,7 +201,13 @@ class Aplib():
             if isRef == 0:
                 fullImagePath = self.path_to_aplib / "Masters" / imagePath
             elif isRef == 1:
-                fullImagePath = Path("/Volumes") / self.volume[vol_uuid] / imagePath 
+                if vol_uuid in self.volume:
+                    fullImagePath = Path("/Volumes") / self.volume[vol_uuid] / imagePath 
+                else:
+                    #TODO:Why would vol_uuid not be in self.volume?
+                    #is this the proper action?
+                    self.unavailable.add(uuid)
+                    continue
 
             #If the file is present, then add it to be exported
             if fullImagePath.exists() and fullImagePath.is_file():
