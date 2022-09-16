@@ -654,7 +654,7 @@ class Aplib():
             self.name_of[uuid] = basename + self.extension_of[uuid]
             counter_str = ""
             while ((path / self.name_of[uuid]).exists() or 
-                    (path / (self.basename_of[uuid] + counter_str + ".xmp")).exists()):
+                    (path / (basename + counter_str + ".xmp")).exists()):
                 counter += 1
                 counter_str = " (" + str(counter) + ")"
                 self.basename_of[uuid] = basename + counter_str
