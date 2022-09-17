@@ -667,6 +667,8 @@ class Aplib():
                     copy2(self.location_of[uuid], path / self.name_of[uuid])
                 else:
                     test1 = self.location_of[uuid]
+                    if not self.location_of[uuid].exists():
+                        raise Exception("UPDATE PREVIEWS")
                     test2 = self.name_of[uuid]
                 if uuid in self.metadata:
                     vprint(path / (self.basename_of[uuid] + ".xmp"))
