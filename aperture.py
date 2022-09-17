@@ -668,7 +668,7 @@ class Aplib():
                 else:
                     test1 = self.location_of[uuid]
                     if not self.location_of[uuid].exists():
-                        raise Exception("UPDATE PREVIEWS")
+                        raise Exception("GENERATE PREVIEWS")
                     test2 = self.name_of[uuid]
                 if uuid in self.metadata:
                     vprint(path / (self.basename_of[uuid] + ".xmp"))
