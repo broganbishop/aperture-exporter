@@ -258,7 +258,7 @@ class Aplib():
             if "rating" not in self.metadata[uuid]:
                 self.metadata[uuid]["rating"] = data
             else:
-                raise Exception("Multiple Ratings")
+                #raise Exception("Multiple Ratings")
                 self.metadata[uuid]["rating"] = max(self.metadata[uuid]["rating"], data)
 
         else:
@@ -293,6 +293,7 @@ class Aplib():
             previewJpegWidth = None
             if versionNum > 0:
                 if not version_file.exists():
+                    print(name)
                     print("Version File does not exist: " + str(version_file))
                     continue
 
@@ -302,17 +303,24 @@ class Aplib():
                         #print(parsed)
                     except Exception as e:
                         print(version_file)
-                        raise Exception("File is not (b)plist")
+                        print(name)
+                        print("File is not (b)plist")
+                        continue
+                        #raise Exception("File is not (b)plist")
 
                 if "imageProxyState" in parsed:
                     upToDate = parsed["imageProxyState"]["fullSizePreviewUpToDate"]
                 else:
-                    raise Exception("No imageProxyState! GENERATE PREVIEWS")
+                    raise Exception("No imageProxyState! GENERATE PREVIEWS (for all photos)")
                 if adjusted:
+                    if 'fullSizePreviewPath' not in parsed["imageProxyState"]:
+                        print(name)
+                        continue
                     previewPath = (self.path_to_aplib / "Previews"
                             / parsed["imageProxyState"]["fullSizePreviewPath"])
                     if not previewPath.exists():
                         if master not in self.unavailable:
+                            print(previewPath)
                             raise Exception("preview does not exist at recorded path")
                         else:
                             #TODO: correct action?
@@ -378,6 +386,7 @@ class Aplib():
             if adjusted == 1 and upToDate == True:
                 if master not in self.unavailable:
                     if previewJpegHeight * previewJpegWidth * 4 == masterHeight * masterWidth:
+                        print(self.name_of[master])
                         raise Exception("Preview is half size")
                 self.adjusted_photos.add(uuid)
                 self.location_of[uuid] = previewPath
@@ -404,8 +413,11 @@ class Aplib():
                                 self.basename_of[master] += " -- " + name
                         if uuid in self.metadata:
                             self.metadata[master] = self.metadata[uuid]
-                    else:
+                    elif versionNum > 1:
                         self.children_of[self.parent_of[master]].add(uuid)
+                    elif versionNum == 0:
+                        #is version zero ever needed?
+                        pass
                 else:
                     #nothing to export except originals
                     pass
@@ -424,11 +436,15 @@ class Aplib():
                 pass
             elif albumType == 3: #Web Gallery
                 pass
+            elif albumType == 4: #Web Journal
+                pass
             elif albumType == 5: #Light Table
                 pass
             elif albumType == 8:
                 pass
             elif albumType == 49:
+                pass
+            elif albumType == 0: #corruption??
                 pass
             #these seem to be the only albums that are important
             elif albumType == 1:
@@ -506,7 +522,7 @@ class Aplib():
 
         if "keywords" in self.metadata[uuid]:
             keyword_string = "\t<dc:subject><rdf:Bag>\n"
-            for k in self.metadata[uuid]["keywords"]:
+            for k in sorted(self.metadata[uuid]["keywords"]):
                 keyword_string += f"\t\t<rdf:li>{k}</rdf:li>\n"
             keyword_string += "\t</rdf:Bag></dc:subject>\n"
         else:
@@ -668,7 +684,9 @@ class Aplib():
                 else:
                     test1 = self.location_of[uuid]
                     if not self.location_of[uuid].exists():
-                        raise Exception("UPDATE/GENERATE PREVIEWS")
+                        print(self.name_of[uuid])
+                        print(self.location_of[uuid])
+                        raise Exception("UPDATE Previews for missing adjusted photos")
                     test2 = self.name_of[uuid]
                 if uuid in self.metadata:
                     vprint(path / (self.basename_of[uuid] + ".xmp"))
@@ -679,19 +697,3 @@ class Aplib():
                         test1 = self.basename_of[uuid]
 
     
-    
-
-class Master():
-    pass
-
-class Version():
-    pass
-
-class Folder():
-    pass
-
-class Album():
-    pass
-
-class Project():
-    pass
